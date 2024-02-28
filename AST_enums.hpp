@@ -127,6 +127,40 @@ enum class UnaryOperator {
 
 };
 
+static std::string unaryOperatorToString(UnaryOperator op) {
+    switch(op) {
+        case UnaryOperator::INC_OP: return "++";
+        case UnaryOperator::DEC_OP: return "--";
+        case UnaryOperator::SIZEOF: return "sizeof";
+        case UnaryOperator::ALIGNOF: return "Alignof";
+        case UnaryOperator::ADDRESS_OF: return "&";
+        case UnaryOperator::MUL_OP: return "*";
+        case UnaryOperator::PLUS: return "+";
+        case UnaryOperator::MINUS: return "-";
+        case UnaryOperator::BITWISE_NOT: return "~";
+        case UnaryOperator::LOGICAL_NOT: return "!";
+        default: return "Unknown"; // Handle the case where the enum value is not recognized
+    }
+}
+
+
+static std::string assignmentOperatorToString(AssignmentOperator op) {
+    switch(op) {
+        case AssignmentOperator::ASSIGN: return "=";
+        case AssignmentOperator::MUL_ASSIGN: return "*=";
+        case AssignmentOperator::DIV_ASSIGN: return "/=";
+        case AssignmentOperator::MOD_ASSIGN: return "%=";
+        case AssignmentOperator::ADD_ASSIGN: return "+=";
+        case AssignmentOperator::SUB_ASSIGN: return "-=";
+        case AssignmentOperator::LEFT_ASSIGN: return "<<=";
+        case AssignmentOperator::RIGHT_ASSIGN: return ">>=";
+        case AssignmentOperator::AND_ASSIGN: return "&=";
+        case AssignmentOperator::XOR_ASSIGN: return "^=";
+        case AssignmentOperator::OR_ASSIGN: return "|=";
+        default: return "Unknown"; // Handle the case where the enum value is not recognized
+    }
+}
+
 
 static std::string specifierEnumToString(SpecifierEnum specEnum) {
     switch (specEnum) {
@@ -326,14 +360,13 @@ static std::string nodeTypeToString(NodeType type) {
 static std::string formatSpacing(int depth) {
     std::string result = "";
     for (int i = 0; i < depth; i++) {
-        switch (i % 7) { // Using 7 different colors
-            case 0: result += "\033[38;2;255;100;100m"; break; // Red foreground
-            case 1: result += "\033[38;2;100;255;100m"; break; // Green foreground
-            case 2: result += "\033[38;2;255;255;100m"; break; // Yellow foreground
-            case 3: result += "\033[38;2;100;100;255m"; break; // Blue foreground
-            case 4: result += "\033[38;2;255;100;255m"; break; // Magenta foreground
-            case 5: result += "\033[38;2;100;255;255m"; break; // Cyan foreground
-            case 6: result += "\033[38;2;255;255;255m"; break; // White foreground with ├ symbol
+        switch (i % 5) { // Using 5 different colors
+            case 0: result += "\033[38;2;1;22;30m"; break; // Red foreground
+            case 1: result += "\033[38;2;18;69;89m"; break; // Red foreground
+            case 2: result += "\033[38;2;89;131;146m"; break; // Red foreground
+            case 3: result += "\033[38;2;174;195;176m"; break; // Red foreground
+            case 4: result += "\033[38;2;239;246;224m"; break; // Red foreground
+
         }
         result += i == depth-1 ? " ┣━":" ┃ ";
     }

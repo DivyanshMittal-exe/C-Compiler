@@ -202,7 +202,6 @@ static int check_type(void)
 static void assign_str()
 {
     yylval.str = new char[yyleng + 1];
-    int i = 0;
     for(int i = 0; i < yyleng; i++){
         yylval.str[i] = yytext[i];
     }

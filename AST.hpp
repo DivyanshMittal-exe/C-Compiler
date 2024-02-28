@@ -147,8 +147,7 @@ public:
     }
 
     string dump_ast(int depth = 0) const {
-        string result = "LabelStatement";
-        return result;
+        return dumpParameters(this, {label, statement}, depth, false);
     }
 
 private:
@@ -166,8 +165,7 @@ public:
     }
 
     string dump_ast(int depth = 0) const {
-        string result = "CaseLabelStatement";
-        return result;
+        return dumpParameters(this, {constant_expression, statement}, depth, false);
     }
 
 private:
@@ -184,8 +182,8 @@ public:
     }
 
     string dump_ast(int depth = 0) const {
-        string result = "DefaultLabelStatement";
-        return result;
+        return dumpParameters(this, {statement}, depth, false);
+
     }
 
 private:
@@ -202,8 +200,8 @@ public:
 
 
     string dump_ast(int depth = 0) const {
-        string result = "IfElseStatement";
-        return result;
+        return dumpParameters(this, {expression, statement, else_statement}, depth, false);
+
     }
 
 private:
@@ -222,8 +220,8 @@ public:
     }
 
     string dump_ast(int depth = 0) const {
-        string result = "IfStatement";
-        return result;
+        return dumpParameters(this, {expression, statement}, depth, false);
+
     }
 
 private:
@@ -239,8 +237,8 @@ public:
     }
 
     string dump_ast(int depth = 0) const {
-        string result = "SwitchStatement";
-        return result;
+        return dumpParameters(this, {expression,statement}, depth, false);
+
     }
 
 private:
@@ -257,8 +255,8 @@ public:
     }
 
     string dump_ast(int depth = 0) const {
-        string result = "WhileStatement";
-        return result;
+        return dumpParameters(this, {expression, statement}, depth, false);
+
     }
 
 private:
@@ -274,8 +272,8 @@ public:
             : ASTNode(NodeType::DoWhileStatement), expression(expression), statement(statement) {}
 
     string dump_ast(int depth = 0) const {
-        string result = "DoWhileStatement";
-        return result;
+        return dumpParameters(this, {statement, expression}, depth, false);
+
     }
 
 private:
@@ -291,8 +289,8 @@ public:
               expression3(expression3), statement(statement) {}
 
     string dump_ast(int depth = 0) const {
-        string result = "ForStatement";
-        return result;
+        return dumpParameters(this, {expression1, expression2, expression3, statement}, depth, false);
+
     }
 
 private:
@@ -309,8 +307,8 @@ public:
             : ASTNode(NodeType::GotoStatement), identifier(identifier) {}
 
     string dump_ast(int depth = 0) const {
-        string result = "GotoStatement";
-        return result;
+        return dumpParameters(this, {identifier}, depth, false);
+
     }
 
 private:
@@ -325,8 +323,8 @@ public:
     }
 
     string dump_ast(int depth = 0) const {
-        string result = "ContinueStatement";
-        return result;
+        return dumpParameters(this, {}, depth, false);
+
     }
 
 };
@@ -338,8 +336,8 @@ public:
     }
 
     string dump_ast(int depth = 0) const {
-        string result = "BreakStatement";
-        return result;
+        return dumpParameters(this, {}, depth, false);
+
     }
 
 };
@@ -357,8 +355,10 @@ public:
     }
 
     string dump_ast(int depth = 0) const {
-        string result = "ReturnStatement";
-        return result;
+        if(expression != nullptr)
+            return dumpParameters(this, {expression}, depth, false);
+        else
+            return dumpParameters(this, {}, depth, false);
     }
 
 private:
@@ -404,8 +404,8 @@ public:
 
 
     string dump_ast(int depth = 0) const {
-        string result = "InitDeclartor";
-        return result;
+        return dumpParameters(this, {declarator, initializer}, depth, false);
+
     }
 
 
@@ -421,8 +421,7 @@ public:
             : ASTNode(NodeType::InitDeclartorList) {}
 
     string dump_ast(int depth = 0) const {
-        string result = "InitDeclartorList";
-        return result;
+        return dumpParameters(this, children, depth, true);
     }
 
 };
@@ -514,8 +513,7 @@ public:
             : ASTNode(NodeType::IdentifierList) {}
 
     string dump_ast(int depth = 0) const {
-        string result = "IdentifierList";
-        return result;
+        return dumpParameters(this, children, depth, true);
     }
 
 
@@ -539,7 +537,11 @@ public:
               assignment_expression(assignment_expression) {}
 
     string dump_ast(int depth = 0) const {
-        string result = "AssignmentExpression";
+        string result = formatSpacing(depth);
+        result += assignmentOperatorToString(assOp) + "{ \n";
+        result += unary_expression->dump_ast(depth + 1);
+        result += assignment_expression->dump_ast(depth + 1);
+        result += formatSpacing(depth) + "} \n";
         return result;
     }
 
@@ -555,8 +557,7 @@ public:
             : ASTNode(NodeType::ArrayAccess), postfix_expression(postfix_expression), expression(expression) {}
 
     string dump_ast(int depth = 0) const {
-        string result = "ArrayAccess";
-        return result;
+        return dumpParameters(this, {postfix_expression, expression}, depth, false);
     }
 
 private:
@@ -571,8 +572,7 @@ public:
               argument_expression_list(argument_expression_list) {}
 
     string dump_ast(int depth = 0) const {
-        string result = "FunctionCall";
-        return result;
+        return dumpParameters(this, {postfix_expression, argument_expression_list}, depth, false);
     }
 
 private:
@@ -586,8 +586,7 @@ public:
             : ASTNode(NodeType::MemberAccess), postfix_expression(postfix_expression), identifier(identifier) {}
 
     string dump_ast(int depth = 0) const {
-        string result = "MemberAccess";
-        return result;
+        return dumpParameters(this, {postfix_expression, identifier}, depth, false);
     }
 
 private:
@@ -602,7 +601,10 @@ public:
             : ASTNode(NodeType::PostfixExpression), primary_expression(primary_expression), postFixOp(postFixOp) {}
 
     string dump_ast(int depth = 0) const {
-        string result = "PostfixExpression";
+        string result = formatSpacing(depth);
+        result += unaryOperatorToString(postFixOp) + "{ \n";
+        result += primary_expression->dump_ast(depth + 1);
+        result += formatSpacing(depth) + "} \n";
         return result;
     }
 
@@ -618,8 +620,7 @@ public:
               expression(expression), conditional_expression(conditional_expression) {}
 
     string dump_ast(int depth = 0) const {
-        string result = "ConditionalExpression";
-        return result;
+        return dumpParameters(this, {logical_or_expression, expression, conditional_expression}, depth, false);
     }
 
 private:
@@ -945,7 +946,7 @@ public:
 
     string dump_ast(int depth = 0) const {
         string result = formatSpacing(depth);
-        result += "String Literal : \" " + value + "\" \n";
+        result += "String Literal : " + value + " \n";
         return result;
     }
 

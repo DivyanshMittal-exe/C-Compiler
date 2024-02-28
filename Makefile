@@ -17,4 +17,4 @@ run2: clean cc
 	./cc examples/test2.c
 
 run3: clean cc
-	./cc examples/test3.c
+	./cc examples/hello_world.c
