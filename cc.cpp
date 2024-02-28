@@ -3,7 +3,7 @@
 #include <assert.h>
 #include "c.tab.hpp"
 #include "AST.hpp"
-
+#include <iostream>
 extern "C" int yylex();
 int yyparse();
 extern "C" FILE *yyin;
@@ -32,7 +32,8 @@ main(int argc, char **argv)
     if (ret == 0) {
         printf("Parsing successful\n");
         printf("AST:\n");
-        printf("%s\n", root->dump_ast().c_str());
+        std::cout << root->dump_ast() << std::endl;
+//        printf("%s\n", root->dump_ast().c_str());
     } else {
         printf("Parsing failed\n");
     }

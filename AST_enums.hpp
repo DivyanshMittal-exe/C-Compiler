@@ -128,9 +128,8 @@ enum class UnaryOperator {
 };
 
 
-
 static std::string specifierEnumToString(SpecifierEnum specEnum) {
-    switch(specEnum) {
+    switch (specEnum) {
         case SpecifierEnum::TYPEDEF:
             return "TYPEDEF";
         case SpecifierEnum::EXTERN:
@@ -194,74 +193,152 @@ static std::string specifierEnumToString(SpecifierEnum specEnum) {
 
 
 static std::string nodeTypeToString(NodeType type) {
-    switch(type) {
-        case NodeType::Unimplemented: return "Unimplemented";
-        case NodeType::TranslationUnit: return "TranslationUnit";
-        case NodeType::FunctionDefinition: return "FunctionDefinition";
-        case NodeType::Expression: return "Expression";
-        case NodeType::DeclarationSpecifiers: return "DeclarationSpecifiers";
-        case NodeType::Specifier: return "Specifier";
-        case NodeType::CompoundStatement: return "CompoundStatement";
-        case NodeType::LabelStatement: return "LabelStatement";
-        case NodeType::CaseLabelStatement: return "CaseLabelStatement";
-        case NodeType::DefaultLabelStatement: return "DefaultLabelStatement";
-        case NodeType::IfElseStatement: return "IfElseStatement";
-        case NodeType::IfStatement: return "IfStatement";
-        case NodeType::SwitchStatement: return "SwitchStatement";
-        case NodeType::WhileStatement: return "WhileStatement";
-        case NodeType::DoWhileStatement: return "DoWhileStatement";
-        case NodeType::ForStatement: return "ForStatement";
-        case NodeType::GotoStatement: return "GotoStatement";
-        case NodeType::ContinueStatement: return "ContinueStatement";
-        case NodeType::BreakStatement: return "BreakStatement";
-        case NodeType::ReturnStatement: return "ReturnStatement";
-        case NodeType::DeclarationList: return "DeclarationList";
-        case NodeType::Declaration: return "Declaration";
-        case NodeType::InitDeclartor: return "InitDeclartor";
-        case NodeType::InitDeclartorList: return "InitDeclartorList";
-        case NodeType::Declarator: return "Declarator";
-        case NodeType::DirectDeclarator: return "DirectDeclarator";
-        case NodeType::Identifier: return "Identifier";
-        case NodeType::IdentifierList: return "IdentifierList";
-        case NodeType::ParameterList: return "ParameterList";
-        case NodeType::ParameterDeclaration: return "ParameterDeclaration";
-        case NodeType::ExpressionList: return "ExpressionList";
-        case NodeType::AssignmentExpression: return "AssignmentExpression";
-        case NodeType::ArrayAccess: return "ArrayAccess";
-        case NodeType::FunctionCall: return "FunctionCall";
-        case NodeType::MemberAccess: return "MemberAccess";
-        case NodeType::PostfixExpression: return "PostfixExpression";
-        case NodeType::ConditionalExpression: return "ConditionalExpression";
-        case NodeType::LogicalOrExpression: return "LogicalOrExpression";
-        case NodeType::LogicalAndExpression: return "LogicalAndExpression";
-        case NodeType::InclusiveOrExpression: return "InclusiveOrExpression";
-        case NodeType::ExclusiveOrExpression: return "ExclusiveOrExpression";
-        case NodeType::AndExpression: return "AndExpression";
-        case NodeType::EqualityExpression: return "EqualityExpression";
-        case NodeType::NonEqualityExpression: return "NonEqualityExpression";
-        case NodeType::LessThanExpression: return "LessThanExpression";
-        case NodeType::GreaterThanExpression: return "GreaterThanExpression";
-        case NodeType::LessOrEqualExpression: return "LessOrEqualExpression";
-        case NodeType::GreaterOrEqualExpression: return "GreaterOrEqualExpression";
-        case NodeType::LeftShiftExpression: return "LeftShiftExpression";
-        case NodeType::RightShiftExpression: return "RightShiftExpression";
-        case NodeType::AdditiveExpression: return "AdditiveExpression";
-        case NodeType::SubExpression: return "SubExpression";
-        case NodeType::MultiplicativeExpression: return "MultiplicativeExpression";
-        case NodeType::DivExpression: return "DivExpression";
-        case NodeType::ModExpression: return "ModExpression";
-        case NodeType::IConstant: return "IConstant";
-        case NodeType::FConstant: return "FConstant";
-        case NodeType::String: return "String";
-        default: return "UnknownNodeType"; // Handle the case where the enum value is not recognized
+    switch (type) {
+        case NodeType::Unimplemented:
+            return "Unimplemented";
+        case NodeType::TranslationUnit:
+            return "TranslationUnit";
+        case NodeType::FunctionDefinition:
+            return "FunctionDefinition";
+        case NodeType::Expression:
+            return "Expression";
+        case NodeType::DeclarationSpecifiers:
+            return "DeclarationSpecifiers";
+        case NodeType::Specifier:
+            return "Specifier";
+        case NodeType::CompoundStatement:
+            return "CompoundStatement";
+        case NodeType::LabelStatement:
+            return "LabelStatement";
+        case NodeType::CaseLabelStatement:
+            return "CaseLabelStatement";
+        case NodeType::DefaultLabelStatement:
+            return "DefaultLabelStatement";
+        case NodeType::IfElseStatement:
+            return "IfElseStatement";
+        case NodeType::IfStatement:
+            return "IfStatement";
+        case NodeType::SwitchStatement:
+            return "SwitchStatement";
+        case NodeType::WhileStatement:
+            return "WhileStatement";
+        case NodeType::DoWhileStatement:
+            return "DoWhileStatement";
+        case NodeType::ForStatement:
+            return "ForStatement";
+        case NodeType::GotoStatement:
+            return "GotoStatement";
+        case NodeType::ContinueStatement:
+            return "ContinueStatement";
+        case NodeType::BreakStatement:
+            return "BreakStatement";
+        case NodeType::ReturnStatement:
+            return "ReturnStatement";
+        case NodeType::DeclarationList:
+            return "DeclarationList";
+        case NodeType::Declaration:
+            return "Declaration";
+        case NodeType::InitDeclartor:
+            return "InitDeclartor";
+        case NodeType::InitDeclartorList:
+            return "InitDeclartorList";
+        case NodeType::Declarator:
+            return "Declarator";
+        case NodeType::DirectDeclarator:
+            return "DirectDeclarator";
+        case NodeType::Identifier:
+            return "Identifier";
+        case NodeType::IdentifierList:
+            return "IdentifierList";
+        case NodeType::ParameterList:
+            return "ParameterList";
+        case NodeType::ParameterDeclaration:
+            return "ParameterDeclaration";
+        case NodeType::ExpressionList:
+            return "ExpressionList";
+        case NodeType::AssignmentExpression:
+            return "AssignmentExpression";
+        case NodeType::ArrayAccess:
+            return "ArrayAccess";
+        case NodeType::FunctionCall:
+            return "FunctionCall";
+        case NodeType::MemberAccess:
+            return "MemberAccess";
+        case NodeType::PostfixExpression:
+            return "PostfixExpression";
+        case NodeType::ConditionalExpression:
+            return "ConditionalExpression";
+        case NodeType::LogicalOrExpression:
+            return "LogicalOrExpression";
+        case NodeType::LogicalAndExpression:
+            return "LogicalAndExpression";
+        case NodeType::InclusiveOrExpression:
+            return "InclusiveOrExpression";
+        case NodeType::ExclusiveOrExpression:
+            return "ExclusiveOrExpression";
+        case NodeType::AndExpression:
+            return "AndExpression";
+        case NodeType::EqualityExpression:
+            return "EqualityExpression";
+        case NodeType::NonEqualityExpression:
+            return "NonEqualityExpression";
+        case NodeType::LessThanExpression:
+            return "LessThanExpression";
+        case NodeType::GreaterThanExpression:
+            return "GreaterThanExpression";
+        case NodeType::LessOrEqualExpression:
+            return "LessOrEqualExpression";
+        case NodeType::GreaterOrEqualExpression:
+            return "GreaterOrEqualExpression";
+        case NodeType::LeftShiftExpression:
+            return "LeftShiftExpression";
+        case NodeType::RightShiftExpression:
+            return "RightShiftExpression";
+        case NodeType::AdditiveExpression:
+            return "AdditiveExpression";
+        case NodeType::SubExpression:
+            return "SubExpression";
+        case NodeType::MultiplicativeExpression:
+            return "MultiplicativeExpression";
+        case NodeType::DivExpression:
+            return "DivExpression";
+        case NodeType::ModExpression:
+            return "ModExpression";
+        case NodeType::IConstant:
+            return "IConstant";
+        case NodeType::FConstant:
+            return "FConstant";
+        case NodeType::String:
+            return "String";
+        default:
+            return "UnknownNodeType"; // Handle the case where the enum value is not recognized
     }
 }
 
-static string formatSpacing(int depth) {
-    string result = "";
+//static string formatSpacing(int depth) {
+//    string result = "";
+//    for (int i = 0; i < depth; i++) {
+//        result += "  ";
+//    }
+//    return result;
+//}
+
+static std::string formatSpacing(int depth) {
+    std::string result = "";
     for (int i = 0; i < depth; i++) {
-        result += "  ";
+        switch (i % 7) { // Using 7 different colors
+            case 0: result += "\033[38;2;255;100;100m"; break; // Red foreground
+            case 1: result += "\033[38;2;100;255;100m"; break; // Green foreground
+            case 2: result += "\033[38;2;255;255;100m"; break; // Yellow foreground
+            case 3: result += "\033[38;2;100;100;255m"; break; // Blue foreground
+            case 4: result += "\033[38;2;255;100;255m"; break; // Magenta foreground
+            case 5: result += "\033[38;2;100;255;255m"; break; // Cyan foreground
+            case 6: result += "\033[38;2;255;255;255m"; break; // White foreground with ├ symbol
+        }
+        result += i == depth-1 ? " ┣━":" ┃ ";
     }
+    // Reset color to default
+    result += "\033[0m";
     return result;
 }
 
@@ -290,19 +367,19 @@ public:
 };
 
 
-
-static std::string dumpParameters(const ASTNode* base, std::vector<ASTNode*> vec_of_nodes, int depth = 0, bool is_list = false) {
+static std::string
+dumpParameters(const ASTNode *base, std::vector<ASTNode *> vec_of_nodes, int depth = 0, bool is_list = false) {
     string result = formatSpacing(depth);
     result += nodeTypeToString(base->getNodeType());
-    result += is_list ? "[ \n": "{ \n";
+    result += is_list ? "[ \n" : "{ \n";
 
     for (auto child: vec_of_nodes) {
         result += child->dump_ast(depth + 1);
         result += is_list ? formatSpacing(depth) + ",\n" : "";
     }
-    if(is_list){
+    if (is_list) {
         result[result.size() - 2] = ']';
-    }else{
+    } else {
         result += formatSpacing(depth) + "} \n";
     }
 
