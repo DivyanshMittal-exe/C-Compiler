@@ -25,14 +25,19 @@ WS  [ \t\v\n\f]
 #include <stdio.h>
 #include "c.tab.hpp"
 
+#include <string>
+
+
 extern void yyerror(const char *);  /* prints grammar violation message */
 
 extern int sym_type(const char *);  /* returns type from symbol table */
+
 
 #define sym_type(identifier) IDENTIFIER /* with no symbol table, fake it */
 
 static void comment(void);
 static int check_type(void);
+static void assign_str(void);
 #define YY_DECL extern "C" int yylex()
 %}
 
@@ -86,21 +91,21 @@ static int check_type(void);
 "_Thread_local"                         { return THREAD_LOCAL; }
 "__func__"                              { return FUNC_NAME; }
 
-{L}{A}*					{ return check_type(); }
+{L}{A}*					{ assign_str() ; return IDENTIFIER; }
 
-{HP}{H}+{IS}?				{ return I_CONSTANT; }
-{NZ}{D}*{IS}?				{ return I_CONSTANT; }
-"0"{O}*{IS}?				{ return I_CONSTANT; }
-{CP}?"'"([^'\\\n]|{ES})+"'"		{ return I_CONSTANT; }
+{HP}{H}+{IS}?				    { yylval.integer = atoi(yytext); return I_CONSTANT; }
+{NZ}{D}*{IS}?				    { yylval.integer = atoi(yytext); return I_CONSTANT; }
+"0"{O}*{IS}?				    { yylval.integer = atoi(yytext); return I_CONSTANT; }
+{CP}?"'"([^'\\\n]|{ES})+"'"		{ yylval.integer = atoi(yytext); return I_CONSTANT; }
 
-{D}+{E}{FS}?				{ return F_CONSTANT; }
-{D}*"."{D}+{E}?{FS}?			{ return F_CONSTANT; }
-{D}+"."{E}?{FS}?			{ return F_CONSTANT; }
-{HP}{H}+{P}{FS}?			{ return F_CONSTANT; }
-{HP}{H}*"."{H}+{P}{FS}?			{ return F_CONSTANT; }
-{HP}{H}+"."{P}{FS}?			{ return F_CONSTANT; }
+{D}+{E}{FS}?				    { yylval.real = std::stof(yytext); return F_CONSTANT; }
+{D}*"."{D}+{E}?{FS}?			{ yylval.real = std::stof(yytext); return F_CONSTANT; }
+{D}+"."{E}?{FS}?			    { yylval.real = std::stof(yytext); return F_CONSTANT; }
+{HP}{H}+{P}{FS}?			    { yylval.real = std::stof(yytext); return F_CONSTANT; }
+{HP}{H}*"."{H}+{P}{FS}?			{ yylval.real = std::stof(yytext); return F_CONSTANT; }
+{HP}{H}+"."{P}{FS}?			    { yylval.real = std::stof(yytext); return F_CONSTANT; }
 
-({SP}?\"([^"\\\n]|{ES})*\"{WS}*)+	{ return STRING_LITERAL; }
+({SP}?\"([^"\\\n]|{ES})*\"{WS}*)+	{  assign_str() ;  return STRING_LITERAL; }
 
 "..."					{ return ELLIPSIS; }
 ">>="					{ return RIGHT_ASSIGN; }
@@ -149,6 +154,8 @@ static int check_type(void);
 "|"					{ return '|'; }
 "?"					{ return '?'; }
 
+
+
 {WS}+					{ /* whitespace separates tokens */ }
 .					{ /* discard bad characters */ }
 
@@ -189,4 +196,16 @@ static int check_type(void)
     default:                          /* includes undefined */
         return IDENTIFIER;
     }
+}
+
+
+static void assign_str()
+{
+    yylval.str = new char[yyleng + 1];
+    int i = 0;
+    for(int i = 0; i < yyleng; i++){
+        yylval.str[i] = yytext[i];
+    }
+    yylval.str[yyleng] = '\0';
+
 }

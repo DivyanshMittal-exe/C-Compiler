@@ -12,3 +12,9 @@ clean::
 
 run: clean cc
 	./cc examples/test1.c
+
+run2: clean cc
+	./cc examples/test2.c
+
+run3: clean cc
+	./cc examples/test3.c

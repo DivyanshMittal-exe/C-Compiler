@@ -56,7 +56,7 @@ ASTNode* root = NULL;
 %type <base_node> direct_declarator
 %type <base_node> constant_expression expression
 %type <base_node> primary_expression postfix_expression argument_expression_list unary_expression  cast_expression multiplicative_expression additive_expression shift_expression relational_expression equality_expression and_expression exclusive_or_expression inclusive_or_expression logical_and_expression logical_or_expression conditional_expression assignment_expression
-%type <base_node> constant string
+%type <base_node> constant string identifier_list parameter_type_list parameter_list parameter_declaration abstract_declarator
 %type <un_op> unary_operator
 %type <ass_op> assignment_operator
 
@@ -70,13 +70,13 @@ primary_expression
 	| constant { $$ = $1; }
 	| string { $$ = $1; }
 	| '(' expression ')' { $$ = $2; }
-	| generic_selection { $$ = nullptr; }
+	| generic_selection { $$ = new NullPtrNode(); }
 	;
 
 constant
 	: I_CONSTANT  {$$ = new	IConstantNode($1);}
 	| F_CONSTANT  {$$ = new	FConstantNode($1);}
-	| ENUMERATION_CONSTANT {$$ = nullptr; }
+	| ENUMERATION_CONSTANT {$$ = new NullPtrNode(); }
 	;
 
 enumeration_constant		/* before it has been defined as such */
@@ -85,7 +85,7 @@ enumeration_constant		/* before it has been defined as such */
 
 string
 	: STRING_LITERAL { $$ = new StringNode($1); }
-	| FUNC_NAME { $$ = nullptr; }
+	| FUNC_NAME { $$ = new NullPtrNode(); }
 	;
 
 generic_selection
@@ -105,14 +105,14 @@ generic_association
 postfix_expression
 	: primary_expression { $$ = $1; }
 	| postfix_expression '[' expression ']' {$$ = new ArrayAccessNode($1, $3);}
-	| postfix_expression '(' ')' {$$ = new FunctionCallNode($1, nullptr);}
+	| postfix_expression '(' ')' {$$ = new FunctionCallNode($1, new NullPtrNode());}
 	| postfix_expression '(' argument_expression_list ')' {$$ = new FunctionCallNode($1, $3);}
 	| postfix_expression '.' IDENTIFIER {$$ = new MemberAccessNode($1, new IdentifierNode($3));}
 	| postfix_expression PTR_OP IDENTIFIER {$$ = new MemberAccessNode($1, new IdentifierNode($3));}
 	| postfix_expression INC_OP {$$ = new PostfixExpressionNode($1, UnaryOperator::INC_OP);}
 	| postfix_expression DEC_OP {$$ = new PostfixExpressionNode($1, UnaryOperator::DEC_OP);}
-	| '(' type_name ')' '{' initializer_list '}' { $$ = nullptr; }
-	| '(' type_name ')' '{' initializer_list ',' '}' { $$ = nullptr; }
+	| '(' type_name ')' '{' initializer_list '}' { $$ = new NullPtrNode(); }
+	| '(' type_name ')' '{' initializer_list ',' '}' { $$ = new NullPtrNode(); }
 	;
 
 argument_expression_list
@@ -122,12 +122,12 @@ argument_expression_list
 
 unary_expression
 	: postfix_expression { $$ = $1; }
-	| INC_OP unary_expression { $$ = nullptr; }
-	| DEC_OP unary_expression { $$ = nullptr; }
-	| unary_operator cast_expression { $$ = nullptr; }
-	| SIZEOF unary_expression { $$ = nullptr; }
-	| SIZEOF '(' type_name ')' { $$ = nullptr; }
-	| ALIGNOF '(' type_name ')' { $$ = nullptr; }
+	| INC_OP unary_expression { $$ = new NullPtrNode(); }
+	| DEC_OP unary_expression { $$ = new NullPtrNode(); }
+	| unary_operator cast_expression { $$ = new NullPtrNode(); }
+	| SIZEOF unary_expression { $$ = new NullPtrNode(); }
+	| SIZEOF '(' type_name ')' { $$ = new NullPtrNode(); }
+	| ALIGNOF '(' type_name ')' { $$ = new NullPtrNode(); }
 	;
 
 unary_operator
@@ -141,7 +141,7 @@ unary_operator
 
 cast_expression
 	: unary_expression { $$ = $1; }
-	| '(' type_name ')' cast_expression { $$ = nullptr; }
+	| '(' type_name ')' cast_expression { $$ = new NullPtrNode(); }
 	;
 
 multiplicative_expression
@@ -236,9 +236,9 @@ constant_expression
 	;
 
 declaration
-	: declaration_specifiers ';' { $$ = new DeclarationNode($1, nullptr);}
+	: declaration_specifiers ';' { $$ = new DeclarationNode($1, new NullPtrNode());}
 	| declaration_specifiers init_declarator_list ';' { $$ = new DeclarationNode($1, $2) ;}
-	| static_assert_declaration { $$ = nullptr; }
+	| static_assert_declaration { $$ = new NullPtrNode(); }
 	;
 
 declaration_specifiers
@@ -262,7 +262,7 @@ init_declarator_list
 
 init_declarator
 	: declarator '=' initializer { $$ = new InitDeclartorNode($1,$3); }
-	| declarator { $$ = new InitDeclartorNode($1, nullptr); }
+	| declarator { $$ = new InitDeclartorNode($1, new NullPtrNode()); }
 	;
 
 
@@ -288,16 +288,16 @@ type_specifier
     | BOOL    { $$ = new SpecifierNode(SpecifierEnum::BOOL); }
     | COMPLEX { $$ = new SpecifierNode(SpecifierEnum::COMPLEX); }
     | IMAGINARY { $$ = new SpecifierNode(SpecifierEnum::IMAGINARY); }
-    | atomic_type_specifier {$$ = nullptr;}
-    | struct_or_union_specifier {$$ = nullptr;}
-    | enum_specifier {$$ = nullptr;}
+    | atomic_type_specifier {$$ = new NullPtrNode();}
+    | struct_or_union_specifier {$$ = new NullPtrNode();}
+    | enum_specifier {$$ = new NullPtrNode();}
     | TYPEDEF_NAME { $$ = new SpecifierNode(SpecifierEnum::TYPEDEF_NAME); }
     ;
 
 struct_or_union_specifier
-	: struct_or_union '{' struct_declaration_list '}' { $$ = nullptr; }
-	| struct_or_union IDENTIFIER '{' struct_declaration_list '}' { $$ = nullptr; }
-	| struct_or_union IDENTIFIER { $$ = nullptr; }
+	: struct_or_union '{' struct_declaration_list '}' { $$ = new NullPtrNode(); }
+	| struct_or_union IDENTIFIER '{' struct_declaration_list '}' { $$ = new NullPtrNode(); }
+	| struct_or_union IDENTIFIER { $$ = new NullPtrNode(); }
 	;
 
 struct_or_union
@@ -335,11 +335,11 @@ struct_declarator
 	;
 
 enum_specifier
-	: ENUM '{' enumerator_list '}' { $$ = nullptr; }
-	| ENUM '{' enumerator_list ',' '}' { $$ = nullptr; }
-	| ENUM IDENTIFIER '{' enumerator_list '}' { $$ = nullptr; }
-	| ENUM IDENTIFIER '{' enumerator_list ',' '}' { $$ = nullptr; }
-	| ENUM IDENTIFIER { $$ = nullptr; }
+	: ENUM '{' enumerator_list '}' { $$ = new NullPtrNode(); }
+	| ENUM '{' enumerator_list ',' '}' { $$ = new NullPtrNode(); }
+	| ENUM IDENTIFIER '{' enumerator_list '}' { $$ = new NullPtrNode(); }
+	| ENUM IDENTIFIER '{' enumerator_list ',' '}' { $$ = new NullPtrNode(); }
+	| ENUM IDENTIFIER { $$ = new NullPtrNode(); }
 	;
 
 enumerator_list
@@ -369,30 +369,30 @@ function_specifier
 	;
 
 alignment_specifier
-	: ALIGNAS '(' type_name ')' { $$ = nullptr; }
-	| ALIGNAS '(' constant_expression ')' { $$ = nullptr; }
+	: ALIGNAS '(' type_name ')' { $$ = new NullPtrNode(); }
+	| ALIGNAS '(' constant_expression ')' { $$ = new NullPtrNode(); }
 	;
 
 declarator
-	: pointer direct_declarator { $$ = new DeclaratorNode(nullptr, $2); }
-	| direct_declarator { $$ = new DeclaratorNode(nullptr, $1);}
+	: pointer direct_declarator { $$ = new DeclaratorNode(new NullPtrNode(), $2); }
+	| direct_declarator { $$ = $1;}
 	;
 
 direct_declarator
 	: IDENTIFIER {$$ = new IdentifierNode($1);}
 	| '(' declarator ')' { $$ = $2; }
-	| direct_declarator '[' ']' {$$ = nullptr;}
-	| direct_declarator '[' '*' ']' {$$ = nullptr;}
-	| direct_declarator '[' STATIC type_qualifier_list assignment_expression ']' {$$ = nullptr;}
-	| direct_declarator '[' STATIC assignment_expression ']' {$$ = nullptr;}
-	| direct_declarator '[' type_qualifier_list '*' ']' {$$ = nullptr;}
-	| direct_declarator '[' type_qualifier_list STATIC assignment_expression ']' {$$ = nullptr;}
-	| direct_declarator '[' type_qualifier_list assignment_expression ']' {$$ = nullptr;}
-	| direct_declarator '[' type_qualifier_list ']' {$$ = nullptr;}
-	| direct_declarator '[' assignment_expression ']' {$$ = nullptr;}
-	| direct_declarator '(' parameter_type_list ')' {$$ = nullptr;}
-	| direct_declarator '(' ')' {$$ = nullptr;}
-	| direct_declarator '(' identifier_list ')'  {$$ = nullptr;}
+	| direct_declarator '[' ']' {$$ = new NullPtrNode();}
+	| direct_declarator '[' '*' ']' {$$ = new NullPtrNode();}
+	| direct_declarator '[' STATIC type_qualifier_list assignment_expression ']' {$$ = new NullPtrNode();}
+	| direct_declarator '[' STATIC assignment_expression ']' {$$ = new NullPtrNode();}
+	| direct_declarator '[' type_qualifier_list '*' ']' {$$ = new NullPtrNode();}
+	| direct_declarator '[' type_qualifier_list STATIC assignment_expression ']' {$$ = new NullPtrNode();}
+	| direct_declarator '[' type_qualifier_list assignment_expression ']' {$$ = new NullPtrNode();}
+	| direct_declarator '[' type_qualifier_list ']' {$$ = new NullPtrNode();}
+	| direct_declarator '[' assignment_expression ']' {$$ = new NullPtrNode();}
+	| direct_declarator '(' parameter_type_list ')' {$$ = new DirectDeclaratorNode($1, $3 ) ;}
+	| direct_declarator '(' ')' {$$ = new DirectDeclaratorNode($1, new NullPtrNode()) ;}
+	| direct_declarator '(' identifier_list ')'  {$$ = new NullPtrNode();}
 	;
 
 pointer
@@ -409,24 +409,24 @@ type_qualifier_list
 
 
 parameter_type_list
-	: parameter_list ',' ELLIPSIS
-	| parameter_list
+	: parameter_list ',' ELLIPSIS {$$ = $1;}
+	| parameter_list {$$ = $1;}
 	;
 
 parameter_list
-	: parameter_declaration
-	| parameter_list ',' parameter_declaration
+	: parameter_declaration { $$ = new ParameterListNode(); $$->addChild($1); }
+	| parameter_list ',' parameter_declaration { $$ = $1; $1->addChild($3); }
 	;
 
 parameter_declaration
-	: declaration_specifiers declarator
-	| declaration_specifiers abstract_declarator
-	| declaration_specifiers
+	: declaration_specifiers declarator { $$ = new ParameterDeclarationNode($1, $2); }
+	| declaration_specifiers abstract_declarator { $$ = new ParameterDeclarationNode($1, $2); }
+	| declaration_specifiers { $$ = new ParameterDeclarationNode($1, new NullPtrNode()); }
 	;
 
 identifier_list
-	: IDENTIFIER
-	| identifier_list ',' IDENTIFIER
+	: IDENTIFIER { $$ = new IdentifierListNode(); $$->addChild(new IdentifierNode($1));}
+	| identifier_list ',' IDENTIFIER { $$ = $1; $1->addChild(new IdentifierNode($3)); }
 	;
 
 type_name
@@ -435,9 +435,9 @@ type_name
 	;
 
 abstract_declarator
-	: pointer direct_abstract_declarator
-	| pointer
-	| direct_abstract_declarator
+	: pointer direct_abstract_declarator { $$ = new NullPtrNode(); }
+	| pointer { $$ = new NullPtrNode(); }
+	| direct_abstract_declarator { $$ = new NullPtrNode(); }
 	;
 
 direct_abstract_declarator
@@ -465,8 +465,8 @@ direct_abstract_declarator
 	;
 
 initializer
-	: '{' initializer_list '}' { $$ = nullptr; }
-	| '{' initializer_list ',' '}' { $$ = nullptr; }
+	: '{' initializer_list '}' { $$ = new NullPtrNode(); }
+	| '{' initializer_list ',' '}' { $$ = new NullPtrNode(); }
 	| assignment_expression { $$ = $1; }
 	;
 
@@ -526,7 +526,7 @@ block_item
 	;
 
 expression_statement
-	: ';' {$$ = nullptr;}
+	: ';' {$$ = new NullPtrNode();}
 	| expression ';' {$$ = $1;}
 	;
 
@@ -539,9 +539,9 @@ selection_statement
 iteration_statement
 	: WHILE '(' expression ')' statement { $$ = new WhileStatementNode($3, $5); }
 	| DO statement WHILE '(' expression ')' ';' { $$ = new DoWhileStatementNode($2, $5); }
-	| FOR '(' expression_statement expression_statement ')' statement { $$ = new ForStatementNode($3, $4, nullptr, $6); }
+	| FOR '(' expression_statement expression_statement ')' statement { $$ = new ForStatementNode($3, $4, new NullPtrNode(), $6); }
 	| FOR '(' expression_statement expression_statement expression ')' statement { $$ = new ForStatementNode($3, $4, $5, $7); }
-	| FOR '(' declaration expression_statement ')' statement { $$ = new ForStatementNode($3, $4, nullptr, $6); }
+	| FOR '(' declaration expression_statement ')' statement { $$ = new ForStatementNode($3, $4, new NullPtrNode(), $6); }
 	| FOR '(' declaration expression_statement expression ')' statement { $$ = new ForStatementNode($3, $4, $5, $7); }
 	;
 
@@ -565,12 +565,12 @@ external_declaration
 
 function_definition
 	: declaration_specifiers declarator declaration_list compound_statement {$$ = new FunctionDefinitionNode($1,$2,$3,$4); }
-	| declaration_specifiers declarator compound_statement {$$ = new FunctionDefinitionNode($1,$2,nullptr,$3); }
+	| declaration_specifiers declarator compound_statement {$$ = new FunctionDefinitionNode($1,$2,new NullPtrNode(),$3); }
 	;
 
 declaration_list
-	: declaration
-	| declaration_list declaration
+	: declaration {$$ = new DeclarationListNode(); $$->addChild($1);}
+	| declaration_list declaration {$$ = $1; $1->addChild($2);}
 	;
 
 %%
