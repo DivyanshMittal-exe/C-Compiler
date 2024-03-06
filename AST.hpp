@@ -4,12 +4,61 @@
 #include <string>
 #include <vector>
 #include "AST_enums.hpp"
+#include "scoper.h"
+
 
 
 using namespace std;
 
+static ScoperStack scoperStack;
+
+class ASTNode {
+public:
+    ASTNode(NodeType type) : type(type) {}
+
+    virtual ~ASTNode() {}
+
+    NodeType getNodeType() const { return type; }
 
 
+    virtual string dump_ast(int depth = 0) const {
+
+        return formatSpacing(depth) + "Interface Node \n";
+        // Implement this method to dump the AST as a string
+    }
+
+    void addChild(ASTNode *child) {
+        children.push_back(child);
+    }
+
+    virtual bool check_semantics() {
+
+    }
+
+
+    vector<ASTNode *> children;
+    NodeType type;
+};
+
+
+static std::string
+dumpParameters(const ASTNode *base, std::vector<ASTNode *> vec_of_nodes, int depth = 0, bool is_list = false) {
+    string result = formatSpacing(depth);
+    result += nodeTypeToString(base->getNodeType());
+    result += is_list ? "[ \n" : "{ \n";
+
+    for (auto child: vec_of_nodes) {
+        result += child->dump_ast(depth + 1);
+        result += is_list ? formatSpacing(depth) + ",\n" : "";
+    }
+    if (is_list) {
+        result[result.size() - 2] = ']';
+    } else {
+        result += formatSpacing(depth) + "} \n";
+    }
+
+    return result;
+}
 
 
 // Helps prevent seg faults due to nullptr reference
@@ -26,6 +75,10 @@ public:
         result += "Unimplemented\n";
         return result;
     }
+
+    bool check_semantics() {
+        return true;
+    }
 };
 
 
@@ -41,6 +94,15 @@ public:
         return dumpParameters(this, children, depth, true);
     }
 
+
+    bool check_semantics() {
+        for (auto child : children) {
+            if (!child->check_semantics()) {
+                return false;
+            }
+        }
+        return true;
+    }
 
     // Add member variables to hold information about translation units
 
@@ -66,6 +128,16 @@ public:
     string dump_ast(int depth = 0) const {
         return dumpParameters(this, {declaration_specifiers, declarator, declaration_list, compound_statement}, depth,
                               false);
+    }
+
+    bool check_semantics() {
+        scoperStack.push();
+        if (declaration_list != nullptr) {
+            declaration_list->check_semantics();
+        }
+        compound_statement->check_semantics();
+        scoperStack.pop();
+        return true;
     }
 
 

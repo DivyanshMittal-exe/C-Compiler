@@ -375,48 +375,5 @@ static std::string formatSpacing(int depth) {
     return result;
 }
 
-class ASTNode {
-public:
-    ASTNode(NodeType type) : type(type) {}
-
-    virtual ~ASTNode() {}
-
-    NodeType getNodeType() const { return type; }
-
-
-    virtual string dump_ast(int depth = 0) const {
-
-        return formatSpacing(depth) + "Interface Node \n";
-        // Implement this method to dump the AST as a string
-    }
-
-    void addChild(ASTNode *child) {
-        children.push_back(child);
-    }
-
-
-    vector<ASTNode *> children;
-    NodeType type;
-};
-
-
-static std::string
-dumpParameters(const ASTNode *base, std::vector<ASTNode *> vec_of_nodes, int depth = 0, bool is_list = false) {
-    string result = formatSpacing(depth);
-    result += nodeTypeToString(base->getNodeType());
-    result += is_list ? "[ \n" : "{ \n";
-
-    for (auto child: vec_of_nodes) {
-        result += child->dump_ast(depth + 1);
-        result += is_list ? formatSpacing(depth) + ",\n" : "";
-    }
-    if (is_list) {
-        result[result.size() - 2] = ']';
-    } else {
-        result += formatSpacing(depth) + "} \n";
-    }
-
-    return result;
-}
 
 #endif // AST_enums_HPP
