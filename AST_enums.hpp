@@ -40,6 +40,7 @@ enum class NodeType {
     AssignmentExpression,
     ArrayAccess,
     FunctionCall,
+    ArgumentExpressionList,
     MemberAccess,
     PostfixExpression,
     ConditionalExpression,
@@ -296,6 +297,8 @@ static std::string nodeTypeToString(NodeType type) {
             return "ArrayAccess";
         case NodeType::FunctionCall:
             return "FunctionCall";
+        case NodeType::ArgumentExpressionList:
+            return "ArgumentExpressionList";
         case NodeType::MemberAccess:
             return "MemberAccess";
         case NodeType::PostfixExpression:
@@ -361,11 +364,11 @@ static std::string formatSpacing(int depth) {
     std::string result = "";
     for (int i = 0; i < depth; i++) {
         switch (i % 5) { // Using 5 different colors
-            case 0: result += "\033[38;2;1;22;30m"; break; // Red foreground
-            case 1: result += "\033[38;2;18;69;89m"; break; // Red foreground
-            case 2: result += "\033[38;2;89;131;146m"; break; // Red foreground
-            case 3: result += "\033[38;2;174;195;176m"; break; // Red foreground
-            case 4: result += "\033[38;2;239;246;224m"; break; // Red foreground
+            case 0: result += "\033[38;2;1;22;30m"; break;
+            case 1: result += "\033[38;2;18;69;89m"; break;
+            case 2: result += "\033[38;2;89;131;146m"; break;
+            case 3: result += "\033[38;2;174;195;176m"; break;
+            case 4: result += "\033[38;2;239;246;224m"; break;
 
         }
         result += i == depth-1 ? " ┣━":" ┃ ";

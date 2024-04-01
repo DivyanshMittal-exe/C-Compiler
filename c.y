@@ -115,9 +115,11 @@ postfix_expression
 	| '(' type_name ')' '{' initializer_list ',' '}' { $$ = new NullPtrNode(); }
 	;
 
+
+
 argument_expression_list
-	: assignment_expression
-	| argument_expression_list ',' assignment_expression
+	: assignment_expression {$$  = new ArgumentExpressionListNode(); $$->addChild($1);}
+	| argument_expression_list ',' assignment_expression {$$ = $1; $1->addChild($3);}
 	;
 
 unary_expression
@@ -512,11 +514,11 @@ labeled_statement
 
 compound_statement
 	: '{' '}' {$$ = new CompoundStatementNode();}
-	| '{'  block_item_list '}' {$$ = new CompoundStatementNode(); $$->addChild($2);}
+	| '{'  block_item_list '}' {$$ = $2;}
 	;
 
 block_item_list
-	: block_item {$$ = $1;}
+	: block_item {$$ = new CompoundStatementNode(); $$->addChild($1);}
 	| block_item_list block_item {$$ = $1; $1->addChild($2);}
 	;
 
@@ -532,7 +534,7 @@ expression_statement
 
 selection_statement
 	: IF '(' expression ')' statement ELSE statement { $$ = new IfElseStatementNode($3, $5, $7); }
-	| IF '(' expression ')' statement { $$ = new IfStatementNode($3, $5); }
+	| IF '(' expression ')' statement { $$ = new IfElseStatementNode($3, $5, new NullPtrNode()); }
 	| SWITCH '(' expression ')' statement { $$ = new SwitchStatementNode($3, $5); }
 	;
 
@@ -549,7 +551,7 @@ jump_statement
 	: GOTO IDENTIFIER ';' { $$ = new GotoStatementNode(new IdentifierNode($2)); }
 	| CONTINUE ';' { $$ = new ContinueStatementNode(); }
 	| BREAK ';' { $$ = new BreakStatementNode(); }
-	| RETURN ';' { $$ = new ReturnStatementNode(); }
+	| RETURN ';' { $$ = new ReturnStatementNode(new NullPtrNode()); }
 	| RETURN expression ';' { $$ = new ReturnStatementNode($2); }
 	;
 
