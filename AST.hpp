@@ -1,10 +1,11 @@
 #ifndef AST_HPP
 #define AST_HPP
 
-#include "codegen.h"
 #include "AST_enums.hpp"
+#include "codegen.h"
 #include "scoper.h"
 #include <iostream>
+#include <llvm-14/llvm/IR/Value.h>
 #include <stdexcept>
 #include <string>
 #include <vector>
@@ -16,6 +17,8 @@ using llvm::Value;
 static ScoperStack scoperStack;
 static CodeGenerator codeGenerator;
 
+static llvm::Type *declaration_type = nullptr;
+static vector<llvm::Type *> function_params;
 
 class ASTNode {
 public:
@@ -48,18 +51,33 @@ public:
   virtual m_Value get() {
     throw std::runtime_error("Unimplemented get() function.");
   }
-  
+
   virtual llvm::Value *codegen() {
     throw std::runtime_error("Unimplemented codegen() function.");
   }
 
+  virtual void buildFunctionParams(llvm::Function *function_decl) {
+    cout << "buildFunctionParams called on base class | "
+         << nodeTypeToString(type) << endl;
+  }
+
   virtual void dump_llvm(string out_filename) final {
-  
 
     std::error_code EC;
     llvm::raw_fd_ostream out(out_filename, EC);
     codeGenerator.global_module->print(out, nullptr);
+  }
 
+  virtual llvm::Type *getValueType() {
+    cout << "getValueType called on base class | " << nodeTypeToString(type)
+         << endl;
+
+    return nullptr;
+  }
+
+  virtual void fixFunctionParams() {
+    cout << "fixFunctionParams called on base class | "
+         << nodeTypeToString(type) << endl;
   }
 
   vector<ASTNode *> children;
@@ -100,14 +118,11 @@ public:
   }
 
   bool check_semantics() { return true; }
-  
-  
-  llvm::Value* codegen(){ 
+
+  llvm::Value *codegen() {
     cout << "Codegen called for NullPtrNode " << endl;
     return nullptr;
-
   }
-
 
   m_Value get() { throw std::runtime_error("get() called on a NullPtr."); }
 };
@@ -128,19 +143,16 @@ public:
     }
     return true;
   }
-  
 
-  Value* codegen(){
-    
-    for(auto child: children){
+  Value *codegen() {
+
+    for (auto child : children) {
       child->codegen();
     }
-    
-    return nullptr;
 
+    return nullptr;
   }
 
-  
   // Add member variables to hold information about translation units
 };
 
@@ -192,6 +204,37 @@ public:
     return true;
   }
 
+  Value *codegen() {
+    declaration_type = nullptr;
+    function_params.clear();
+
+    llvm::Type *func_ret_type = declaration_specifiers->getValueType();
+    string func_name = declarator->get().s;
+
+    if (codeGenerator.isFunctionDefined(func_name)) {
+      return codeGenerator.functions[func_name];
+    }
+
+    declarator->fixFunctionParams();
+
+    llvm::FunctionType *function_type =
+        llvm::FunctionType::get(func_ret_type, function_params, false);
+    llvm::Function *function_decl =
+        llvm::Function::Create(function_type, llvm::Function::ExternalLinkage,
+                               func_name, codeGenerator.global_module.get());
+
+    // Store the function in the functions map
+    codeGenerator.functions[func_name] = function_decl;
+
+    // Create a new basic block to start insertion into.
+    llvm::BasicBlock *basic_block = llvm::BasicBlock::Create(
+        codeGenerator.getContext(), "entry", function_decl);
+
+    llvm::IRBuilder<> builder(basic_block);
+
+    declarator->buildFunctionParams(function_decl);
+  }
+
 private:
   ASTNode *declaration_specifiers;
   ASTNode *declarator;
@@ -211,6 +254,18 @@ public:
     throw std::runtime_error(
         "Checking Semantics for declaration specifiers does not make sense");
   }
+
+  llvm::Type *getValueType() {
+
+    for (auto child : children) {
+      llvm::Type *val = child->getValueType();
+      if (val != nullptr) {
+        declaration_type = val;
+      }
+    }
+
+    return declaration_type;
+  }
 };
 
 class SpecifierNode : public ASTNode {
@@ -229,6 +284,11 @@ public:
   bool check_semantics() {
     throw std::runtime_error(
         "Checking Semantics for specifiers does not make sense");
+  }
+
+  llvm::Type *getValueType() {
+    llvm::Type *val = getCurrType(specifier, codeGenerator.getContext());
+    return val;
   }
 
   SpecifierEnum specifier;
@@ -613,6 +673,8 @@ public:
 
   m_Value get() { return direct_declarator->get(); }
 
+  void fixFunctionParams() { direct_declarator->fixFunctionParams(); }
+
 private:
   ASTNode *pointer;
   ASTNode *direct_declarator;
@@ -635,6 +697,14 @@ public:
 
   bool check_semantics() { return parameter_type_list->check_semantics(); }
 
+  void fixFunctionParams() {
+
+    if (parameter_type_list->getNodeType() == NodeType::Unimplemented) {
+      return;
+    }
+    parameter_type_list->fixFunctionParams();
+  }
+
 private:
   ASTNode *direct_declarator;
   ASTNode *parameter_type_list;
@@ -656,6 +726,12 @@ public:
     }
     return true;
   }
+
+  void fixFunctionParams() {
+    for (auto child : children) {
+      child->fixFunctionParams();
+    }
+  }
 };
 
 class ParameterDeclarationNode : public ASTNode {
@@ -671,6 +747,11 @@ public:
   }
 
   bool check_semantics() { return declarator->check_semantics(); }
+
+  void fixFunctionParams() {
+    declaration_type = declaration_specifiers->getValueType();
+    function_params.push_back(declaration_type);
+  }
 
 private:
   ASTNode *declaration_specifiers;
