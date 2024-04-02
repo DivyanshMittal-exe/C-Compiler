@@ -11,7 +11,7 @@ clean:
 	rm -f c.tab.cpp c.tab.hpp c.lex.cpp cc c.output
 
 run_llvm: clean cc
-	./cc examples/test1.c --dump-ast
+	./cc examples/test_trivial.c --dump-ast
 	./a.ll
 
 run: clean cc

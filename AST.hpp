@@ -5,9 +5,15 @@
 #include "codegen.h"
 #include "scoper.h"
 #include <iostream>
+#include <llvm-14/llvm/IR/BasicBlock.h>
+#include <llvm-14/llvm/IR/Function.h>
+#include <llvm-14/llvm/IR/IRBuilder.h>
+#include <llvm-14/llvm/IR/Instructions.h>
+#include <llvm-14/llvm/IR/Type.h>
 #include <llvm-14/llvm/IR/Value.h>
 #include <stdexcept>
 #include <string>
+#include <type_traits>
 #include <vector>
 
 using namespace std;
@@ -19,6 +25,14 @@ static CodeGenerator codeGenerator;
 
 static llvm::Type *declaration_type = nullptr;
 static vector<llvm::Type *> function_params;
+
+static llvm::IRBuilder<> *curent_builder = nullptr;
+
+static int parameter_list_index = 0;
+
+static llvm::Type *func_ret_type = nullptr;
+
+static map<string, Value *> current_symbol_table;
 
 class ASTNode {
 public:
@@ -53,6 +67,9 @@ public:
   }
 
   virtual llvm::Value *codegen() {
+
+    cerr << "Codegen called for " << nodeTypeToString(type) << endl;
+
     throw std::runtime_error("Unimplemented codegen() function.");
   }
 
@@ -201,14 +218,16 @@ public:
 
     compound_statement->check_semantics();
     scoperStack.pop();
+
     return true;
   }
 
   Value *codegen() {
     declaration_type = nullptr;
     function_params.clear();
+    current_symbol_table.clear();
 
-    llvm::Type *func_ret_type = declaration_specifiers->getValueType();
+    func_ret_type = declaration_specifiers->getValueType();
     string func_name = declarator->get().s;
 
     if (codeGenerator.isFunctionDefined(func_name)) {
@@ -230,9 +249,25 @@ public:
     llvm::BasicBlock *basic_block = llvm::BasicBlock::Create(
         codeGenerator.getContext(), "entry", function_decl);
 
-    llvm::IRBuilder<> builder(basic_block);
+    curent_builder = new llvm::IRBuilder<>(basic_block);
 
     declarator->buildFunctionParams(function_decl);
+
+    codeGenerator.push_symbol_table();
+    codeGenerator.push_func_args(current_symbol_table);
+
+    compound_statement->codegen();
+
+    if (func_ret_type->isVoidTy()) {
+      curent_builder->CreateRetVoid();
+    }
+
+    codeGenerator.pop_func_args();
+    codeGenerator.pop_symbol_table();
+
+    curent_builder->CreateRet(llvm::Constant::getNullValue(func_ret_type));
+
+    return nullptr;
   }
 
 private:
@@ -313,6 +348,13 @@ public:
     scoperStack.pop();
     return true;
   }
+
+  Value *codegen() {
+    for (auto child : children) {
+      child->codegen();
+    }
+    return nullptr;
+  }
 };
 
 class LabelStatementNode : public ASTNode {
@@ -387,6 +429,47 @@ public:
     }
     scoperStack.pop();
     return true;
+  }
+
+  Value *codegen() {
+    llvm::Value *conditionValue = expression->codegen();
+    llvm::Value *condition = curent_builder->CreateICmpNE(
+        conditionValue,
+        llvm::ConstantInt::get(
+            llvm::Type::getInt1Ty(codeGenerator.getContext()), 0, true),
+        "ifcond");
+
+    llvm::BasicBlock *current_block = curent_builder->GetInsertBlock();
+    llvm::Function *function = current_block->getParent();
+
+    llvm::BasicBlock *then_block =
+        llvm::BasicBlock::Create(codeGenerator.getContext(), "then", function);
+    llvm::BasicBlock *else_block =
+        llvm::BasicBlock::Create(codeGenerator.getContext(), "else");
+    llvm::BasicBlock *merge_block =
+        llvm::BasicBlock::Create(codeGenerator.getContext(), "ifcont");
+
+    curent_builder->CreateCondBr(condition, then_block, else_block);
+
+    curent_builder->SetInsertPoint(then_block);
+    codeGenerator.push_symbol_table();
+    statement->codegen();
+    codeGenerator.pop_symbol_table();
+    curent_builder->CreateBr(merge_block);
+
+    function->getBasicBlockList().push_back(else_block);
+    curent_builder->SetInsertPoint(else_block);
+    if (else_statement->getNodeType() != NodeType::Unimplemented) {
+      codeGenerator.push_symbol_table();
+      else_statement->codegen();
+      codeGenerator.pop_symbol_table();
+    }
+    curent_builder->CreateBr(merge_block);
+
+    function->getBasicBlockList().push_back(merge_block);
+    curent_builder->SetInsertPoint(merge_block);
+
+    return nullptr;
   }
 
 private:
@@ -565,6 +648,13 @@ public:
 
   bool check_semantics() { return expression->check_semantics(); }
 
+  Value *codegen() {
+    if (expression->getNodeType() != NodeType::Unimplemented) {
+      return curent_builder->CreateRet(expression->codegen());
+    }
+    return curent_builder->CreateRetVoid();
+  }
+
 private:
   ASTNode *expression;
 };
@@ -592,6 +682,14 @@ public:
   }
 
   bool check_semantics() { return init_declarator_list->check_semantics(); }
+
+  Value *codegen() {
+
+    auto type_of_decl = declaration_specifiers->getValueType();
+
+    init_declarator_list->codegen();
+    return nullptr;
+  }
 
 private:
   ASTNode *declaration_specifiers;
@@ -631,6 +729,22 @@ public:
     return scoperStack.add(declarator->get().s);
   }
 
+  Value *codegen() {
+
+    llvm::Value *val = nullptr;
+    if (initializer->getNodeType() != NodeType::Unimplemented) {
+      val = initializer->codegen();
+    }
+    if (val == nullptr) {
+      val = llvm::Constant::getNullValue(declaration_type);
+    }
+    llvm::AllocaInst *alloca = curent_builder->CreateAlloca(
+        declaration_type, nullptr, declarator->get().s);
+    curent_builder->CreateStore(val, alloca);
+    current_symbol_table[declarator->get().s] = alloca;
+    return alloca;
+  }
+
 private:
   ASTNode *declarator;
   ASTNode *initializer;
@@ -651,6 +765,13 @@ public:
       }
     }
     return true;
+  }
+
+  Value *codegen() {
+    for (auto child : children) {
+      child->codegen();
+    }
+    return nullptr;
   }
 };
 
@@ -674,6 +795,10 @@ public:
   m_Value get() { return direct_declarator->get(); }
 
   void fixFunctionParams() { direct_declarator->fixFunctionParams(); }
+
+  void buildFunctionParams(llvm::Function *function_decl) {
+    direct_declarator->buildFunctionParams(function_decl);
+  }
 
 private:
   ASTNode *pointer;
@@ -705,6 +830,13 @@ public:
     parameter_type_list->fixFunctionParams();
   }
 
+  void buildFunctionParams(llvm::Function *function_decl) {
+    if (parameter_type_list->getNodeType() == NodeType::Unimplemented) {
+      return;
+    }
+    parameter_type_list->buildFunctionParams(function_decl);
+  }
+
 private:
   ASTNode *direct_declarator;
   ASTNode *parameter_type_list;
@@ -732,6 +864,14 @@ public:
       child->fixFunctionParams();
     }
   }
+
+  void buildFunctionParams(llvm::Function *function_decl) {
+    parameter_list_index = 0;
+    for (auto child : children) {
+      child->buildFunctionParams(function_decl);
+      parameter_list_index += 1;
+    }
+  }
 };
 
 class ParameterDeclarationNode : public ASTNode {
@@ -751,6 +891,19 @@ public:
   void fixFunctionParams() {
     declaration_type = declaration_specifiers->getValueType();
     function_params.push_back(declaration_type);
+  }
+
+  void buildFunctionParams(llvm::Function *function_decl) {
+    declaration_type = declaration_specifiers->getValueType();
+
+    string name = declarator->get().s;
+
+    llvm::AllocaInst *p =
+        curent_builder->CreateAlloca(declaration_type, nullptr, name);
+    curent_builder->CreateStore(
+        function_decl->arg_begin() + parameter_list_index, p);
+
+    current_symbol_table[name] = p;
   }
 
 private:
@@ -773,6 +926,8 @@ public:
   m_Value get() { return m_Value(name); }
 
   bool check_semantics() { return scoperStack.exists(name); }
+
+  Value *codegen() { return current_symbol_table[name]; }
 
 private:
   string name;
@@ -812,6 +967,12 @@ public:
     }
     return true;
   }
+  Value *codegen() {
+    for (auto child : children) {
+      child->codegen();
+    }
+    return nullptr;
+  }
 };
 
 class AssignmentExpressionNode : public ASTNode {
@@ -834,6 +995,89 @@ public:
   bool check_semantics() {
     return unary_expression->check_semantics() &&
            assignment_expression->check_semantics();
+  }
+
+  Value *codegen() override {
+    // Generate LLVM IR for the right-hand side expression
+    Value *rhsValue = assignment_expression->codegen();
+
+    // Get the address of the left-hand side variable or expression
+    Value *lhsAddr = unary_expression->codegen();
+
+    // Perform the assignment based on the operator
+    switch (assOp) {
+    case AssignmentOperator::ASSIGN:
+      // Store the value to the address
+      curent_builder->CreateStore(rhsValue, lhsAddr);
+      break;
+    /* case AssignmentOperator::MUL_ASSIGN: */
+    /*     // Load the current value from the address, perform multiplication,
+     * and store the result */
+    /*     curent_builder->CreateStore( */
+    /*         curent_builder->CreateMul(curent_builder->CreateLoad(lhsAddr),
+     * rhsValue), lhsAddr); */
+    /*     break; */
+    /* case AssignmentOperator::DIV_ASSIGN: */
+    /*     // Perform division and store the result */
+    /*     curent_builder->CreateStore( */
+    /*         curent_builder->CreateSDiv(curent_builder->CreateLoad(lhsAddr),
+     * rhsValue), lhsAddr); */
+    /*     break; */
+    /* case AssignmentOperator::MOD_ASSIGN: */
+    /*     // Perform modulus and store the result */
+    /*     curent_builder->CreateStore( */
+    /*         curent_builder->CreateSRem(curent_builder->CreateLoad(lhsAddr),
+     * rhsValue), lhsAddr); */
+    /*     break; */
+    /* case AssignmentOperator::ADD_ASSIGN: */
+    /*     // Perform addition and store the result */
+    /*     curent_builder->CreateStore( */
+    /*         curent_builder->CreateAdd(curent_builder->CreateLoad(lhsAddr),
+     * rhsValue), lhsAddr); */
+    /*     break; */
+    /* case AssignmentOperator::SUB_ASSIGN: */
+    /*     // Perform subtraction and store the result */
+    /*     curent_builder->CreateStore( */
+    /*         curent_builder->CreateSub(curent_builder->CreateLoad(lhsAddr),
+     * rhsValue), lhsAddr); */
+    /*     break; */
+    /* case AssignmentOperator::LEFT_ASSIGN: */
+    /*     // Perform left shift and store the result */
+    /*     curent_builder->CreateStore( */
+    /*         curent_builder->CreateShl(curent_builder->CreateLoad(lhsAddr),
+     * rhsValue), lhsAddr); */
+    /*     break; */
+    /* case AssignmentOperator::RIGHT_ASSIGN: */
+    /*     // Perform right shift and store the result */
+    /*     curent_builder->CreateStore( */
+    /*         curent_builder->CreateAShr(curent_builder->CreateLoad(lhsAddr),
+     * rhsValue), lhsAddr); */
+    /*     break; */
+    /* case AssignmentOperator::AND_ASSIGN: */
+    /*     // Perform bitwise AND and store the result */
+    /*     curent_builder->CreateStore( */
+    /*         curent_builder->CreateAnd(curent_builder->CreateLoad(lhsAddr),
+     * rhsValue), lhsAddr); */
+    /*     break; */
+    /* case AssignmentOperator::XOR_ASSIGN: */
+    /*     // Perform bitwise XOR and store the result */
+    /*     curent_builder->CreateStore( */
+    /*         curent_builder->CreateXor(curent_builder->CreateLoad(lhsAddr),
+     * rhsValue), lhsAddr); */
+    /*     break; */
+    /* case AssignmentOperator::OR_ASSIGN: */
+    /*     // Perform bitwise OR and store the result */
+    /*     curent_builder->CreateStore( */
+    /*         curent_builder->CreateOr(curent_builder->CreateLoad(lhsAddr),
+     * rhsValue), lhsAddr); */
+    /*     break; */
+    default:
+      cerr << "Error: Unsupported assignment operator." << endl;
+      return nullptr;
+    }
+
+    // Return the assigned value
+    return rhsValue;
   }
 
 private:
@@ -951,6 +1195,50 @@ public:
            conditional_expression->check_semantics();
   }
 
+  Value *codegen() {
+
+    Value *conditionValue = logical_or_expression->codegen();
+    Value *condition = curent_builder->CreateICmpNE(
+        conditionValue,
+        llvm::ConstantInt::get(
+            llvm::Type::getInt1Ty(codeGenerator.getContext()), 0, true),
+        "ifcond");
+
+    llvm::Function *function = curent_builder->GetInsertBlock()->getParent();
+
+    llvm::BasicBlock *then_block =
+        llvm::BasicBlock::Create(codeGenerator.getContext(), "then", function);
+    llvm::BasicBlock *else_block =
+        llvm::BasicBlock::Create(codeGenerator.getContext(), "else");
+    llvm::BasicBlock *merge_block =
+        llvm::BasicBlock::Create(codeGenerator.getContext(), "ifcont");
+
+    curent_builder->CreateCondBr(condition, then_block, else_block);
+
+    curent_builder->SetInsertPoint(then_block);
+    Value *thenValue = expression->codegen();
+    curent_builder->CreateBr(
+        merge_block); // Branch to merge block after executing thenBlock
+
+    // Set insertion point for the "else" block
+    function->getBasicBlockList().push_back(else_block);
+    curent_builder->SetInsertPoint(else_block);
+    Value *elseValue = conditional_expression->codegen();
+    curent_builder->CreateBr(
+        merge_block); // Branch to merge block after executing elseBlock
+
+    // Set insertion point for the merge block
+    function->getBasicBlockList().push_back(merge_block);
+    curent_builder->SetInsertPoint(merge_block);
+
+    // Create phi node to merge the results from thenBlock and elseBlock
+    llvm::PHINode *phiNode = curent_builder->CreatePHI(thenValue->getType(), 2);
+    phiNode->addIncoming(thenValue, then_block);
+    phiNode->addIncoming(elseValue, else_block);
+
+    return phiNode;
+  }
+
 private:
   ASTNode *logical_or_expression;
   ASTNode *expression;
@@ -973,6 +1261,12 @@ public:
   bool check_semantics() {
     return logical_or_expression->check_semantics() &&
            logical_and_expression->check_semantics();
+  }
+
+  Value *codegen() {
+    Value *lhs = logical_or_expression->codegen();
+    Value *rhs = logical_and_expression->codegen();
+    return curent_builder->CreateOr(lhs, rhs, "or");
   }
 
 private:
@@ -998,6 +1292,12 @@ public:
            inclusive_or_expression->check_semantics();
   }
 
+  Value *codegen() {
+    Value *lhs = logical_and_expression->codegen();
+    Value *rhs = inclusive_or_expression->codegen();
+    return curent_builder->CreateAnd(lhs, rhs, "and");
+  }
+
 private:
   ASTNode *logical_and_expression;
   ASTNode *inclusive_or_expression;
@@ -1019,6 +1319,12 @@ public:
   bool check_semantics() {
     return inclusive_or_expression->check_semantics() &&
            exclusive_or_expression->check_semantics();
+  }
+
+  Value *codegen() {
+    Value *lhs = inclusive_or_expression->codegen();
+    Value *rhs = exclusive_or_expression->codegen();
+    return curent_builder->CreateOr(lhs, rhs, "or");
   }
 
 private:
@@ -1044,6 +1350,12 @@ public:
            and_expression->check_semantics();
   }
 
+  Value *codegen() {
+    Value *lhs = exclusive_or_expression->codegen();
+    Value *rhs = and_expression->codegen();
+    return curent_builder->CreateXor(lhs, rhs, "xor");
+  }
+
 private:
   ASTNode *exclusive_or_expression;
   ASTNode *and_expression;
@@ -1063,6 +1375,12 @@ public:
   bool check_semantics() {
     return and_expression->check_semantics() &&
            equality_expression->check_semantics();
+  }
+
+  Value *codegen() {
+    Value *lhs = and_expression->codegen();
+    Value *rhs = equality_expression->codegen();
+    return curent_builder->CreateAnd(lhs, rhs, "and");
   }
 
 private:
@@ -1088,6 +1406,12 @@ public:
            relational_expression->check_semantics();
   }
 
+  Value *codegen() {
+    Value *lhs = equality_expression->codegen();
+    Value *rhs = relational_expression->codegen();
+    return curent_builder->CreateICmpEQ(lhs, rhs, "equal");
+  }
+
 private:
   ASTNode *equality_expression;
   ASTNode *relational_expression;
@@ -1109,6 +1433,12 @@ public:
   bool check_semantics() {
     return equality_expression->check_semantics() &&
            relational_expression->check_semantics();
+  }
+
+  Value *codegen() {
+    Value *lhs = equality_expression->codegen();
+    Value *rhs = relational_expression->codegen();
+    return curent_builder->CreateICmpNE(lhs, rhs, "nequal");
   }
 
 private:
@@ -1134,6 +1464,12 @@ public:
            shift_expression->check_semantics();
   }
 
+  Value *codegen() {
+    Value *lhs = relational_expression->codegen();
+    Value *rhs = shift_expression->codegen();
+    return curent_builder->CreateICmpSLT(lhs, rhs, "lt");
+  }
+
 private:
   ASTNode *relational_expression;
   ASTNode *shift_expression;
@@ -1155,6 +1491,12 @@ public:
   bool check_semantics() {
     return relational_expression->check_semantics() &&
            shift_expression->check_semantics();
+  }
+
+  Value *codegen() {
+    Value *lhs = relational_expression->codegen();
+    Value *rhs = shift_expression->codegen();
+    return curent_builder->CreateICmpSGT(lhs, rhs, "gt");
   }
 
 private:
@@ -1180,6 +1522,12 @@ public:
            shift_expression->check_semantics();
   }
 
+  Value *codegen() {
+    Value *lhs = relational_expression->codegen();
+    Value *rhs = shift_expression->codegen();
+    return curent_builder->CreateICmpSLE(lhs, rhs, "le");
+  }
+
 private:
   ASTNode *relational_expression;
   ASTNode *shift_expression;
@@ -1201,6 +1549,12 @@ public:
   bool check_semantics() {
     return relational_expression->check_semantics() &&
            shift_expression->check_semantics();
+  }
+
+  Value *codegen() {
+    Value *lhs = relational_expression->codegen();
+    Value *rhs = shift_expression->codegen();
+    return curent_builder->CreateICmpSGE(lhs, rhs, "ge");
   }
 
 private:
@@ -1226,6 +1580,12 @@ public:
            additive_expression->check_semantics();
   }
 
+  Value *codegen() {
+    Value *lhs = shift_expression->codegen();
+    Value *rhs = additive_expression->codegen();
+    return curent_builder->CreateShl(lhs, rhs, "shl");
+  }
+
 private:
   ASTNode *shift_expression;
   ASTNode *additive_expression;
@@ -1247,6 +1607,11 @@ public:
   bool check_semantics() {
     return shift_expression->check_semantics() &&
            additive_expression->check_semantics();
+  }
+  Value *codegen() {
+    Value *lhs = shift_expression->codegen();
+    Value *rhs = additive_expression->codegen();
+    return curent_builder->CreateAShr(lhs, rhs, "ashr");
   }
 
 private:
@@ -1270,6 +1635,11 @@ public:
   bool check_semantics() {
     return additive_expression->check_semantics() &&
            multiplicative_expression->check_semantics();
+  }
+  Value *codegen() {
+    Value *lhs = additive_expression->codegen();
+    Value *rhs = multiplicative_expression->codegen();
+    return curent_builder->CreateAdd(lhs, rhs, "add");
   }
 
 private:
@@ -1295,6 +1665,12 @@ public:
            multiplicative_expression->check_semantics();
   }
 
+  Value *codegen() {
+    Value *lhs = additive_expression->codegen();
+    Value *rhs = multiplicative_expression->codegen();
+    return curent_builder->CreateSub(lhs, rhs, "sub");
+  }
+
 private:
   ASTNode *additive_expression;
   ASTNode *multiplicative_expression;
@@ -1316,6 +1692,12 @@ public:
   bool check_semantics() {
     return multiplicative_expression->check_semantics() &&
            cast_expression->check_semantics();
+  }
+
+  Value *codegen() {
+    Value *lhs = multiplicative_expression->codegen();
+    Value *rhs = cast_expression->codegen();
+    return curent_builder->CreateMul(lhs, rhs, "mul");
   }
 
 private:
@@ -1341,6 +1723,12 @@ public:
            cast_expression->check_semantics();
   }
 
+  Value *codegen() {
+    Value *lhs = multiplicative_expression->codegen();
+    Value *rhs = cast_expression->codegen();
+    return curent_builder->CreateSDiv(lhs, rhs, "div");
+  }
+
 private:
   ASTNode *multiplicative_expression;
   ASTNode *cast_expression;
@@ -1364,6 +1752,12 @@ public:
            cast_expression->check_semantics();
   }
 
+  Value *codegen() {
+    Value *lhs = multiplicative_expression->codegen();
+    Value *rhs = cast_expression->codegen();
+    return curent_builder->CreateSRem(lhs, rhs, "mod");
+  }
+
 private:
   ASTNode *multiplicative_expression;
   ASTNode *cast_expression;
@@ -1377,6 +1771,11 @@ public:
     string result = formatSpacing(depth);
     result += "Integer:" + to_string(value) + "\n";
     return result;
+  }
+
+  Value *codegen() {
+    return llvm::ConstantInt::get(codeGenerator.getContext(),
+                                  llvm::APInt(32, value));
   }
 
 private:
@@ -1393,6 +1792,11 @@ public:
     return result;
   }
 
+  Value *codegen() {
+    return llvm::ConstantFP::get(codeGenerator.getContext(),
+                                 llvm::APFloat(value));
+  }
+
 private:
   float value;
 };
@@ -1406,6 +1810,8 @@ public:
     result += "String Literal : " + value + " \n";
     return result;
   }
+
+  Value *codegen() { return curent_builder->CreateGlobalStringPtr(value); }
 
 private:
   string value;

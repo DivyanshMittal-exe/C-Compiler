@@ -21,6 +21,9 @@ public:
 
   map<string, llvm::Value *> functions;
 
+  vector<map<string, llvm::Value *>> symbol_tables;
+  vector<map<string, llvm::Value *>> func_args;
+
   CodeGenerator() {
     unique_ptr<llvm::LLVMContext> global_context =
         make_unique<llvm::LLVMContext>();
@@ -36,6 +39,20 @@ public:
   }
 
   llvm::LLVMContext &getContext() { return *contexts.back(); }
+
+  void push_func_args(map<string, llvm::Value *> symbol_table) {
+    func_args.push_back(symbol_table);
+  }
+
+  void pop_func_args() { func_args.pop_back(); }
+
+  void push_symbol_table() {
+
+    map<string, llvm::Value *> new_table;
+    symbol_tables.push_back(new_table);
+  }
+
+  void pop_symbol_table() { symbol_tables.pop_back(); }
 };
 
 static llvm::Type *getCurrType(SpecifierEnum specifier,
