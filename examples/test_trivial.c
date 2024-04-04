@@ -1,4 +1,5 @@
 
+int printf(char const *format, ...);
 
 int main() {
   int a;

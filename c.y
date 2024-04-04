@@ -57,6 +57,8 @@ ASTNode* root = NULL;
 %type <base_node> constant_expression expression
 %type <base_node> primary_expression postfix_expression argument_expression_list unary_expression  cast_expression multiplicative_expression additive_expression shift_expression relational_expression equality_expression and_expression exclusive_or_expression inclusive_or_expression logical_and_expression logical_or_expression conditional_expression assignment_expression
 %type <base_node> constant string identifier_list parameter_type_list parameter_list parameter_declaration abstract_declarator
+%type <base_node> pointer
+
 %type <un_op> unary_operator
 %type <ass_op> assignment_operator
 
@@ -376,7 +378,7 @@ alignment_specifier
 	;
 
 declarator
-	: pointer direct_declarator { $$ = new DeclaratorNode(new NullPtrNode(), $2); }
+	: pointer direct_declarator { $$ = new DeclaratorNode($1, $2); }
 	| direct_declarator { $$ = $1;}
 	;
 
@@ -392,16 +394,16 @@ direct_declarator
 	| direct_declarator '[' type_qualifier_list assignment_expression ']' {$$ = new NullPtrNode();}
 	| direct_declarator '[' type_qualifier_list ']' {$$ = new NullPtrNode();}
 	| direct_declarator '[' assignment_expression ']' {$$ = new NullPtrNode();}
-	| direct_declarator '(' parameter_type_list ')' {$$ = new DirectDeclaratorNode($1, $3 ) ;}
-	| direct_declarator '(' ')' {$$ = new DirectDeclaratorNode($1, new NullPtrNode()) ;}
+	| direct_declarator '(' parameter_type_list ')' {$$ = new FunctionDeclarationNode($1, $3 ) ;}
+	| direct_declarator '(' ')' {$$ = new FunctionDeclarationNode($1, new NullPtrNode()) ;}
 	| direct_declarator '(' identifier_list ')'  {$$ = new NullPtrNode();}
 	;
 
 pointer
-	: '*' type_qualifier_list pointer
-	| '*' type_qualifier_list
-	| '*' pointer
-	| '*'
+	: '*' type_qualifier_list pointer {$$ = new PointerNode( $3); }
+	| '*' type_qualifier_list {$$ = new PointerNode(new NullPtrNode()); }
+	| '*' pointer { $$ = new PointerNode($2); }
+	| '*' {$$ = new PointerNode(new NullPtrNode()); }
 	;
 
 type_qualifier_list
@@ -411,7 +413,7 @@ type_qualifier_list
 
 
 parameter_type_list
-	: parameter_list ',' ELLIPSIS {$$ = $1;}
+	: parameter_list ',' ELLIPSIS {$$ = $1; $1->variadic = true;}
 	| parameter_list {$$ = $1;}
 	;
 

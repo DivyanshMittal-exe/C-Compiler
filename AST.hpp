@@ -30,11 +30,11 @@ static llvm::IRBuilder<> *curent_builder = nullptr;
 
 static int parameter_list_index = 0;
 
-static llvm::Type *func_ret_type = nullptr;
-
 static map<string, Value *> current_symbol_table;
 
 static bool get_as_rvalue = false;
+
+static bool global_is_variadic = false;
 
 class ASTNode {
 public:
@@ -101,6 +101,12 @@ public:
          << nodeTypeToString(type) << endl;
   }
 
+  virtual void modifyDeclarationType() {
+    cout << "modifyDeclarationType called on base class | "
+         << nodeTypeToString(type) << endl;
+  }
+
+  bool variadic = false;
   vector<ASTNode *> children;
   NodeType type;
 };
@@ -116,12 +122,17 @@ static std::string dumpParameters(const ASTNode *base,
     result += child->dump_ast(depth + 1);
     result += is_list ? formatSpacing(depth) + ",\n" : "";
   }
+
   if (is_list) {
     result[result.size() - 2] = ']';
   } else {
     result += formatSpacing(depth) + "} \n";
   }
 
+  if (base->getNodeType() == NodeType::ParameterList) {
+    result += formatSpacing(depth) +
+              "Variadic: " + (base->variadic ? "true" : "false") + "\n";
+  }
   return result;
 }
 
@@ -233,20 +244,36 @@ public:
     function_params.clear();
     current_symbol_table.clear();
 
-    func_ret_type = declaration_specifiers->getValueType();
+    global_is_variadic = false;
+
     string func_name = declarator->get().s;
 
-    if (codeGenerator.isFunctionDefined(func_name)) {
-      return codeGenerator.getFunction(func_name);
+    llvm::Type *func_ret_type = nullptr;
+
+    llvm::Function *function_decl = nullptr;
+    if (codeGenerator.isFunctionDeclaredButNotDefined(func_name)) {
+      function_decl = codeGenerator.declared_functions[func_name];
+      func_ret_type = function_decl->getReturnType();
+      codeGenerator.declared_functions.erase(func_name);
+    } else {
+
+      if (codeGenerator.isFunctionDefined(func_name)) {
+
+        throw std::runtime_error("Function " + func_name +
+                                 " has already been defined.");
+        return nullptr;
+      }
+      declaration_specifiers->getValueType();
+      declarator->modifyDeclarationType();
+      func_ret_type = declaration_type;
+      declarator->fixFunctionParams();
+
+      llvm::FunctionType *function_type = llvm::FunctionType::get(
+          func_ret_type, function_params, global_is_variadic);
+      function_decl =
+          llvm::Function::Create(function_type, llvm::Function::ExternalLinkage,
+                                 func_name, codeGenerator.global_module.get());
     }
-
-    declarator->fixFunctionParams();
-
-    llvm::FunctionType *function_type =
-        llvm::FunctionType::get(func_ret_type, function_params, false);
-    llvm::Function *function_decl =
-        llvm::Function::Create(function_type, llvm::Function::ExternalLinkage,
-                               func_name, codeGenerator.global_module.get());
 
     // Create a new basic block to start insertion into.
     llvm::BasicBlock *basic_block = llvm::BasicBlock::Create(
@@ -747,14 +774,16 @@ public:
   }
 
   Value *codegen() {
-
+    llvm::Type *old_type = declaration_type;
+    declarator->modifyDeclarationType();
     llvm::Type *declaration_type_copy = declaration_type;
+    declaration_type = old_type;
 
     llvm::Value *val = nullptr;
     if (initializer->getNodeType() != NodeType::Unimplemented) {
       val = initializer->codegen();
     } else {
-      val = llvm::Constant::getNullValue(declaration_type);
+      val = llvm::Constant::getNullValue(declaration_type_copy);
     }
 
     llvm::AllocaInst *alloca = curent_builder->CreateAlloca(
@@ -788,7 +817,9 @@ public:
 
   Value *codegen() {
     for (auto child : children) {
+      llvm::Type *old_type = declaration_type;
       child->codegen();
+      declaration_type = old_type;
     }
     return nullptr;
   }
@@ -813,7 +844,16 @@ public:
 
   m_Value get() { return direct_declarator->get(); }
 
-  void fixFunctionParams() { direct_declarator->fixFunctionParams(); }
+  void fixFunctionParams() {
+    llvm::Type *old_type = declaration_type;
+    direct_declarator->fixFunctionParams();
+    declaration_type = old_type;
+  }
+
+  void modifyDeclarationType() {
+    pointer->modifyDeclarationType();
+    direct_declarator->modifyDeclarationType();
+  }
 
   void buildFunctionParams(llvm::Function *function_decl) {
     direct_declarator->buildFunctionParams(function_decl);
@@ -824,10 +864,36 @@ private:
   ASTNode *direct_declarator;
 };
 
-class DirectDeclaratorNode : public ASTNode {
+class PointerNode : public ASTNode {
 public:
-  DirectDeclaratorNode(ASTNode *direct_declarator, ASTNode *parameter_type_list)
-      : ASTNode(NodeType::DirectDeclarator),
+  PointerNode(ASTNode *pointer)
+      : ASTNode(NodeType::Pointer), pointer(pointer) {}
+
+  string dump_ast(int depth = 0) const {
+    string result = formatSpacing(depth) + "*\n";
+    if (pointer->getNodeType() != NodeType::Unimplemented) {
+      result += pointer->dump_ast(depth);
+    }
+    return result;
+  }
+
+  void fixFunctionParams() {
+    if (pointer->getNodeType() == NodeType::Unimplemented) {
+      return;
+    }
+    declaration_type = llvm::PointerType::get(declaration_type, 0);
+    pointer->fixFunctionParams();
+  }
+
+private:
+  ASTNode *pointer;
+};
+
+class FunctionDeclarationNode : public ASTNode {
+public:
+  FunctionDeclarationNode(ASTNode *direct_declarator,
+                          ASTNode *parameter_type_list)
+      : ASTNode(NodeType::FunctionDeclator),
         direct_declarator(direct_declarator),
         parameter_type_list(parameter_type_list) {}
 
@@ -843,17 +909,46 @@ public:
 
   void fixFunctionParams() {
 
+    llvm::Type *current_type = declaration_type;
+
     if (parameter_type_list->getNodeType() == NodeType::Unimplemented) {
       return;
     }
     parameter_type_list->fixFunctionParams();
+
+    declaration_type = current_type;
   }
+
+  void modifyDeclarationType() { direct_declarator->modifyDeclarationType(); }
 
   void buildFunctionParams(llvm::Function *function_decl) {
     if (parameter_type_list->getNodeType() == NodeType::Unimplemented) {
       return;
     }
     parameter_type_list->buildFunctionParams(function_decl);
+  }
+
+  Value *codegen() {
+
+    global_is_variadic = false;
+
+    if (codeGenerator.isFunctionDeclaredButNotDefined(
+            direct_declarator->get().s)) {
+      return nullptr;
+    }
+
+    string func_name = direct_declarator->get().s;
+    llvm::Type *current_type = declaration_type;
+    fixFunctionParams();
+    llvm::FunctionType *function_type = llvm::FunctionType::get(
+        current_type, function_params, global_is_variadic);
+
+    llvm::Function *function_decl =
+        llvm::Function::Create(function_type, llvm::Function::ExternalLinkage,
+                               func_name, codeGenerator.global_module.get());
+
+    codeGenerator.declared_functions[func_name] = function_decl;
+    return nullptr;
   }
 
 private:
@@ -879,6 +974,9 @@ public:
   }
 
   void fixFunctionParams() {
+
+    global_is_variadic = variadic;
+
     for (auto child : children) {
       child->fixFunctionParams();
     }
@@ -909,11 +1007,13 @@ public:
 
   void fixFunctionParams() {
     declaration_type = declaration_specifiers->getValueType();
+    declarator->modifyDeclarationType();
     function_params.push_back(declaration_type);
   }
 
   void buildFunctionParams(llvm::Function *function_decl) {
     declaration_type = declaration_specifiers->getValueType();
+    declarator->modifyDeclarationType();
 
     string name = declarator->get().s;
 
@@ -945,6 +1045,8 @@ public:
   m_Value get() { return m_Value(name); }
 
   bool check_semantics() { return scoperStack.exists(name); }
+
+  void modifyDeclarationType() {}
 
   Value *codegen() {
 

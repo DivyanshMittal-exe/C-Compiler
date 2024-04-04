@@ -682,34 +682,34 @@ static const yytype_int8 yytranslate[] =
 /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_int16 yyrline[] =
 {
-       0,    69,    69,    70,    71,    72,    73,    77,    78,    79,
-      83,    87,    88,    92,    96,    97,   101,   102,   106,   107,
-     108,   109,   110,   111,   112,   113,   114,   115,   121,   122,
-     126,   127,   128,   129,   130,   131,   132,   136,   137,   138,
-     139,   140,   141,   145,   146,   150,   151,   152,   153,   157,
-     158,   159,   163,   164,   165,   169,   170,   171,   172,   173,
-     177,   178,   179,   183,   184,   188,   189,   193,   194,   198,
-     199,   203,   204,   208,   209,   213,   214,   218,   219,   220,
-     221,   222,   223,   224,   225,   226,   227,   228,   232,   233,
-     237,   241,   242,   243,   247,   248,   249,   250,   251,   252,
-     253,   254,   255,   256,   260,   261,   266,   267,   272,   273,
-     274,   275,   276,   277,   281,   282,   283,   284,   285,   286,
-     287,   288,   289,   290,   291,   292,   293,   294,   295,   296,
-     300,   301,   302,   306,   307,   311,   312,   316,   317,   318,
-     322,   323,   324,   325,   329,   330,   334,   335,   336,   340,
-     341,   342,   343,   344,   348,   349,   353,   354,   358,   362,
-     363,   364,   365,   369,   370,   374,   375,   379,   380,   384,
-     385,   386,   387,   388,   389,   390,   391,   392,   393,   394,
-     395,   396,   397,   401,   402,   403,   404,   408,   409,   414,
-     415,   419,   420,   424,   425,   426,   430,   431,   435,   436,
-     440,   441,   442,   446,   447,   448,   449,   450,   451,   452,
-     453,   454,   455,   456,   457,   458,   459,   460,   461,   462,
-     463,   464,   465,   466,   470,   471,   472,   476,   477,   478,
-     479,   483,   487,   488,   492,   493,   497,   501,   502,   503,
-     504,   505,   506,   510,   511,   512,   516,   517,   521,   522,
-     526,   527,   531,   532,   536,   537,   538,   542,   543,   544,
-     545,   546,   547,   551,   552,   553,   554,   555,   559,   560,
-     564,   565,   569,   570,   574,   575
+       0,    71,    71,    72,    73,    74,    75,    79,    80,    81,
+      85,    89,    90,    94,    98,    99,   103,   104,   108,   109,
+     110,   111,   112,   113,   114,   115,   116,   117,   123,   124,
+     128,   129,   130,   131,   132,   133,   134,   138,   139,   140,
+     141,   142,   143,   147,   148,   152,   153,   154,   155,   159,
+     160,   161,   165,   166,   167,   171,   172,   173,   174,   175,
+     179,   180,   181,   185,   186,   190,   191,   195,   196,   200,
+     201,   205,   206,   210,   211,   215,   216,   220,   221,   222,
+     223,   224,   225,   226,   227,   228,   229,   230,   234,   235,
+     239,   243,   244,   245,   249,   250,   251,   252,   253,   254,
+     255,   256,   257,   258,   262,   263,   268,   269,   274,   275,
+     276,   277,   278,   279,   283,   284,   285,   286,   287,   288,
+     289,   290,   291,   292,   293,   294,   295,   296,   297,   298,
+     302,   303,   304,   308,   309,   313,   314,   318,   319,   320,
+     324,   325,   326,   327,   331,   332,   336,   337,   338,   342,
+     343,   344,   345,   346,   350,   351,   355,   356,   360,   364,
+     365,   366,   367,   371,   372,   376,   377,   381,   382,   386,
+     387,   388,   389,   390,   391,   392,   393,   394,   395,   396,
+     397,   398,   399,   403,   404,   405,   406,   410,   411,   416,
+     417,   421,   422,   426,   427,   428,   432,   433,   437,   438,
+     442,   443,   444,   448,   449,   450,   451,   452,   453,   454,
+     455,   456,   457,   458,   459,   460,   461,   462,   463,   464,
+     465,   466,   467,   468,   472,   473,   474,   478,   479,   480,
+     481,   485,   489,   490,   494,   495,   499,   503,   504,   505,
+     506,   507,   508,   512,   513,   514,   518,   519,   523,   524,
+     528,   529,   533,   534,   538,   539,   540,   544,   545,   546,
+     547,   548,   549,   553,   554,   555,   556,   557,   561,   562,
+     566,   567,   571,   572,   576,   577
 };
 #endif
 
@@ -2012,1249 +2012,1273 @@ yyreduce:
   switch (yyn)
     {
   case 2: /* primary_expression: IDENTIFIER  */
-#line 69 "c.y"
+#line 71 "c.y"
                      { (yyval.base_node) = new IdentifierNode((yyvsp[0].str)); }
 #line 2018 "c.tab.cpp"
     break;
 
   case 3: /* primary_expression: constant  */
-#line 70 "c.y"
+#line 72 "c.y"
                    { (yyval.base_node) = (yyvsp[0].base_node); }
 #line 2024 "c.tab.cpp"
     break;
 
   case 4: /* primary_expression: string  */
-#line 71 "c.y"
+#line 73 "c.y"
                  { (yyval.base_node) = (yyvsp[0].base_node); }
 #line 2030 "c.tab.cpp"
     break;
 
   case 5: /* primary_expression: '(' expression ')'  */
-#line 72 "c.y"
+#line 74 "c.y"
                              { (yyval.base_node) = (yyvsp[-1].base_node); }
 #line 2036 "c.tab.cpp"
     break;
 
   case 6: /* primary_expression: generic_selection  */
-#line 73 "c.y"
+#line 75 "c.y"
                             { (yyval.base_node) = new NullPtrNode(); }
 #line 2042 "c.tab.cpp"
     break;
 
   case 7: /* constant: I_CONSTANT  */
-#line 77 "c.y"
+#line 79 "c.y"
                       {(yyval.base_node) = new	IConstantNode((yyvsp[0].integer));}
 #line 2048 "c.tab.cpp"
     break;
 
   case 8: /* constant: F_CONSTANT  */
-#line 78 "c.y"
+#line 80 "c.y"
                       {(yyval.base_node) = new	FConstantNode((yyvsp[0].real));}
 #line 2054 "c.tab.cpp"
     break;
 
   case 9: /* constant: ENUMERATION_CONSTANT  */
-#line 79 "c.y"
+#line 81 "c.y"
                                {(yyval.base_node) = new NullPtrNode(); }
 #line 2060 "c.tab.cpp"
     break;
 
   case 11: /* string: STRING_LITERAL  */
-#line 87 "c.y"
+#line 89 "c.y"
                          { (yyval.base_node) = new StringNode((yyvsp[0].str)); }
 #line 2066 "c.tab.cpp"
     break;
 
   case 12: /* string: FUNC_NAME  */
-#line 88 "c.y"
+#line 90 "c.y"
                     { (yyval.base_node) = new NullPtrNode(); }
 #line 2072 "c.tab.cpp"
     break;
 
   case 18: /* postfix_expression: primary_expression  */
-#line 106 "c.y"
+#line 108 "c.y"
                              { (yyval.base_node) = (yyvsp[0].base_node); }
 #line 2078 "c.tab.cpp"
     break;
 
   case 19: /* postfix_expression: postfix_expression '[' expression ']'  */
-#line 107 "c.y"
+#line 109 "c.y"
                                                 {(yyval.base_node) = new ArrayAccessNode((yyvsp[-3].base_node), (yyvsp[-1].base_node));}
 #line 2084 "c.tab.cpp"
     break;
 
   case 20: /* postfix_expression: postfix_expression '(' ')'  */
-#line 108 "c.y"
+#line 110 "c.y"
                                      {(yyval.base_node) = new FunctionCallNode((yyvsp[-2].base_node), new NullPtrNode());}
 #line 2090 "c.tab.cpp"
     break;
 
   case 21: /* postfix_expression: postfix_expression '(' argument_expression_list ')'  */
-#line 109 "c.y"
+#line 111 "c.y"
                                                               {(yyval.base_node) = new FunctionCallNode((yyvsp[-3].base_node), (yyvsp[-1].base_node));}
 #line 2096 "c.tab.cpp"
     break;
 
   case 22: /* postfix_expression: postfix_expression '.' IDENTIFIER  */
-#line 110 "c.y"
+#line 112 "c.y"
                                             {(yyval.base_node) = new MemberAccessNode((yyvsp[-2].base_node), new IdentifierNode((yyvsp[0].str)));}
 #line 2102 "c.tab.cpp"
     break;
 
   case 23: /* postfix_expression: postfix_expression PTR_OP IDENTIFIER  */
-#line 111 "c.y"
+#line 113 "c.y"
                                                {(yyval.base_node) = new MemberAccessNode((yyvsp[-2].base_node), new IdentifierNode((yyvsp[0].str)));}
 #line 2108 "c.tab.cpp"
     break;
 
   case 24: /* postfix_expression: postfix_expression INC_OP  */
-#line 112 "c.y"
+#line 114 "c.y"
                                     {(yyval.base_node) = new PostfixExpressionNode((yyvsp[-1].base_node), UnaryOperator::INC_OP);}
 #line 2114 "c.tab.cpp"
     break;
 
   case 25: /* postfix_expression: postfix_expression DEC_OP  */
-#line 113 "c.y"
+#line 115 "c.y"
                                     {(yyval.base_node) = new PostfixExpressionNode((yyvsp[-1].base_node), UnaryOperator::DEC_OP);}
 #line 2120 "c.tab.cpp"
     break;
 
   case 26: /* postfix_expression: '(' type_name ')' '{' initializer_list '}'  */
-#line 114 "c.y"
+#line 116 "c.y"
                                                      { (yyval.base_node) = new NullPtrNode(); }
 #line 2126 "c.tab.cpp"
     break;
 
   case 27: /* postfix_expression: '(' type_name ')' '{' initializer_list ',' '}'  */
-#line 115 "c.y"
+#line 117 "c.y"
                                                          { (yyval.base_node) = new NullPtrNode(); }
 #line 2132 "c.tab.cpp"
     break;
 
   case 28: /* argument_expression_list: assignment_expression  */
-#line 121 "c.y"
+#line 123 "c.y"
                                 {(yyval.base_node)  = new ArgumentExpressionListNode(); (yyval.base_node)->addChild((yyvsp[0].base_node));}
 #line 2138 "c.tab.cpp"
     break;
 
   case 29: /* argument_expression_list: argument_expression_list ',' assignment_expression  */
-#line 122 "c.y"
+#line 124 "c.y"
                                                              {(yyval.base_node) = (yyvsp[-2].base_node); (yyvsp[-2].base_node)->addChild((yyvsp[0].base_node));}
 #line 2144 "c.tab.cpp"
     break;
 
   case 30: /* unary_expression: postfix_expression  */
-#line 126 "c.y"
+#line 128 "c.y"
                              { (yyval.base_node) = (yyvsp[0].base_node); }
 #line 2150 "c.tab.cpp"
     break;
 
   case 31: /* unary_expression: INC_OP unary_expression  */
-#line 127 "c.y"
+#line 129 "c.y"
                                   { (yyval.base_node) = new NullPtrNode(); }
 #line 2156 "c.tab.cpp"
     break;
 
   case 32: /* unary_expression: DEC_OP unary_expression  */
-#line 128 "c.y"
+#line 130 "c.y"
                                   { (yyval.base_node) = new NullPtrNode(); }
 #line 2162 "c.tab.cpp"
     break;
 
   case 33: /* unary_expression: unary_operator cast_expression  */
-#line 129 "c.y"
+#line 131 "c.y"
                                          { (yyval.base_node) = new NullPtrNode(); }
 #line 2168 "c.tab.cpp"
     break;
 
   case 34: /* unary_expression: SIZEOF unary_expression  */
-#line 130 "c.y"
+#line 132 "c.y"
                                   { (yyval.base_node) = new NullPtrNode(); }
 #line 2174 "c.tab.cpp"
     break;
 
   case 35: /* unary_expression: SIZEOF '(' type_name ')'  */
-#line 131 "c.y"
+#line 133 "c.y"
                                    { (yyval.base_node) = new NullPtrNode(); }
 #line 2180 "c.tab.cpp"
     break;
 
   case 36: /* unary_expression: ALIGNOF '(' type_name ')'  */
-#line 132 "c.y"
+#line 134 "c.y"
                                     { (yyval.base_node) = new NullPtrNode(); }
 #line 2186 "c.tab.cpp"
     break;
 
   case 37: /* unary_operator: '&'  */
-#line 136 "c.y"
+#line 138 "c.y"
               {(yyval.un_op) = UnaryOperator::ADDRESS_OF; }
 #line 2192 "c.tab.cpp"
     break;
 
   case 38: /* unary_operator: '*'  */
-#line 137 "c.y"
+#line 139 "c.y"
               {(yyval.un_op) = UnaryOperator::MUL_OP; }
 #line 2198 "c.tab.cpp"
     break;
 
   case 39: /* unary_operator: '+'  */
-#line 138 "c.y"
+#line 140 "c.y"
               {(yyval.un_op) = UnaryOperator::PLUS; }
 #line 2204 "c.tab.cpp"
     break;
 
   case 40: /* unary_operator: '-'  */
-#line 139 "c.y"
+#line 141 "c.y"
               {(yyval.un_op) = UnaryOperator::MINUS; }
 #line 2210 "c.tab.cpp"
     break;
 
   case 41: /* unary_operator: '~'  */
-#line 140 "c.y"
+#line 142 "c.y"
               {(yyval.un_op) = UnaryOperator::BITWISE_NOT; }
 #line 2216 "c.tab.cpp"
     break;
 
   case 42: /* unary_operator: '!'  */
-#line 141 "c.y"
+#line 143 "c.y"
               {(yyval.un_op) = UnaryOperator::LOGICAL_NOT; }
 #line 2222 "c.tab.cpp"
     break;
 
   case 43: /* cast_expression: unary_expression  */
-#line 145 "c.y"
+#line 147 "c.y"
                            { (yyval.base_node) = (yyvsp[0].base_node); }
 #line 2228 "c.tab.cpp"
     break;
 
   case 44: /* cast_expression: '(' type_name ')' cast_expression  */
-#line 146 "c.y"
+#line 148 "c.y"
                                             { (yyval.base_node) = new NullPtrNode(); }
 #line 2234 "c.tab.cpp"
     break;
 
   case 45: /* multiplicative_expression: cast_expression  */
-#line 150 "c.y"
+#line 152 "c.y"
                           {(yyval.base_node) = (yyvsp[0].base_node); }
 #line 2240 "c.tab.cpp"
     break;
 
   case 46: /* multiplicative_expression: multiplicative_expression '*' cast_expression  */
-#line 151 "c.y"
+#line 153 "c.y"
                                                         { (yyval.base_node) = new MultiplicativeExpressionNode((yyvsp[-2].base_node), (yyvsp[0].base_node)); }
 #line 2246 "c.tab.cpp"
     break;
 
   case 47: /* multiplicative_expression: multiplicative_expression '/' cast_expression  */
-#line 152 "c.y"
+#line 154 "c.y"
                                                         {(yyval.base_node) = new DivExpressionNode((yyvsp[-2].base_node), (yyvsp[0].base_node)); }
 #line 2252 "c.tab.cpp"
     break;
 
   case 48: /* multiplicative_expression: multiplicative_expression '%' cast_expression  */
-#line 153 "c.y"
+#line 155 "c.y"
                                                         {(yyval.base_node) = new ModExpressionNode((yyvsp[-2].base_node), (yyvsp[0].base_node)); }
 #line 2258 "c.tab.cpp"
     break;
 
   case 49: /* additive_expression: multiplicative_expression  */
-#line 157 "c.y"
+#line 159 "c.y"
                                     {(yyval.base_node) = (yyvsp[0].base_node); }
 #line 2264 "c.tab.cpp"
     break;
 
   case 50: /* additive_expression: additive_expression '+' multiplicative_expression  */
-#line 158 "c.y"
+#line 160 "c.y"
                                                             { (yyval.base_node) = new AdditiveExpressionNode((yyvsp[-2].base_node), (yyvsp[0].base_node)); }
 #line 2270 "c.tab.cpp"
     break;
 
   case 51: /* additive_expression: additive_expression '-' multiplicative_expression  */
-#line 159 "c.y"
+#line 161 "c.y"
                                                             {(yyval.base_node) = new SubExpressionNode((yyvsp[-2].base_node), (yyvsp[0].base_node)); }
 #line 2276 "c.tab.cpp"
     break;
 
   case 52: /* shift_expression: additive_expression  */
-#line 163 "c.y"
+#line 165 "c.y"
                               { (yyval.base_node) = (yyvsp[0].base_node); }
 #line 2282 "c.tab.cpp"
     break;
 
   case 53: /* shift_expression: shift_expression LEFT_OP additive_expression  */
-#line 164 "c.y"
+#line 166 "c.y"
                                                        { (yyval.base_node) = new LeftShiftExpressionNode((yyvsp[-2].base_node), (yyvsp[0].base_node)); }
 #line 2288 "c.tab.cpp"
     break;
 
   case 54: /* shift_expression: shift_expression RIGHT_OP additive_expression  */
-#line 165 "c.y"
+#line 167 "c.y"
                                                         { (yyval.base_node) = new RightShiftExpressionNode((yyvsp[-2].base_node), (yyvsp[0].base_node)); }
 #line 2294 "c.tab.cpp"
     break;
 
   case 55: /* relational_expression: shift_expression  */
-#line 169 "c.y"
+#line 171 "c.y"
                            { (yyval.base_node) = (yyvsp[0].base_node); }
 #line 2300 "c.tab.cpp"
     break;
 
   case 56: /* relational_expression: relational_expression '<' shift_expression  */
-#line 170 "c.y"
+#line 172 "c.y"
                                                      { (yyval.base_node) = new LessThanExpressionNode((yyvsp[-2].base_node), (yyvsp[0].base_node)); }
 #line 2306 "c.tab.cpp"
     break;
 
   case 57: /* relational_expression: relational_expression '>' shift_expression  */
-#line 171 "c.y"
+#line 173 "c.y"
                                                      { (yyval.base_node) = new GreaterThanExpressionNode((yyvsp[-2].base_node), (yyvsp[0].base_node)); }
 #line 2312 "c.tab.cpp"
     break;
 
   case 58: /* relational_expression: relational_expression LE_OP shift_expression  */
-#line 172 "c.y"
+#line 174 "c.y"
                                                        { (yyval.base_node) = new LessOrEqualExpressionNode((yyvsp[-2].base_node), (yyvsp[0].base_node)); }
 #line 2318 "c.tab.cpp"
     break;
 
   case 59: /* relational_expression: relational_expression GE_OP shift_expression  */
-#line 173 "c.y"
+#line 175 "c.y"
                                                        { (yyval.base_node) = new GreaterOrEqualExpressionNode((yyvsp[-2].base_node), (yyvsp[0].base_node)); }
 #line 2324 "c.tab.cpp"
     break;
 
   case 60: /* equality_expression: relational_expression  */
-#line 177 "c.y"
+#line 179 "c.y"
                                 { (yyval.base_node) = (yyvsp[0].base_node); }
 #line 2330 "c.tab.cpp"
     break;
 
   case 61: /* equality_expression: equality_expression EQ_OP relational_expression  */
-#line 178 "c.y"
+#line 180 "c.y"
                                                           { (yyval.base_node) = new EqualityExpressionNode((yyvsp[-2].base_node), (yyvsp[0].base_node)); }
 #line 2336 "c.tab.cpp"
     break;
 
   case 62: /* equality_expression: equality_expression NE_OP relational_expression  */
-#line 179 "c.y"
+#line 181 "c.y"
                                                           { (yyval.base_node) = new NonEqualityExpressionNode((yyvsp[-2].base_node), (yyvsp[0].base_node)); }
 #line 2342 "c.tab.cpp"
     break;
 
   case 63: /* and_expression: equality_expression  */
-#line 183 "c.y"
+#line 185 "c.y"
                               { (yyval.base_node) = (yyvsp[0].base_node); }
 #line 2348 "c.tab.cpp"
     break;
 
   case 64: /* and_expression: and_expression '&' equality_expression  */
-#line 184 "c.y"
+#line 186 "c.y"
                                                  { (yyval.base_node) = new AndExpressionNode((yyvsp[-2].base_node), (yyvsp[0].base_node)); }
 #line 2354 "c.tab.cpp"
     break;
 
   case 65: /* exclusive_or_expression: and_expression  */
-#line 188 "c.y"
+#line 190 "c.y"
                          { (yyval.base_node) = (yyvsp[0].base_node); }
 #line 2360 "c.tab.cpp"
     break;
 
   case 66: /* exclusive_or_expression: exclusive_or_expression '^' and_expression  */
-#line 189 "c.y"
+#line 191 "c.y"
                                                      { (yyval.base_node) = new ExclusiveOrExpressionNode((yyvsp[-2].base_node), (yyvsp[0].base_node)); }
 #line 2366 "c.tab.cpp"
     break;
 
   case 67: /* inclusive_or_expression: exclusive_or_expression  */
-#line 193 "c.y"
+#line 195 "c.y"
                                   { (yyval.base_node) = (yyvsp[0].base_node); }
 #line 2372 "c.tab.cpp"
     break;
 
   case 68: /* inclusive_or_expression: inclusive_or_expression '|' exclusive_or_expression  */
-#line 194 "c.y"
+#line 196 "c.y"
                                                               { (yyval.base_node) = new InclusiveOrExpressionNode((yyvsp[-2].base_node), (yyvsp[0].base_node)); }
 #line 2378 "c.tab.cpp"
     break;
 
   case 69: /* logical_and_expression: inclusive_or_expression  */
-#line 198 "c.y"
+#line 200 "c.y"
                                   { (yyval.base_node) = (yyvsp[0].base_node); }
 #line 2384 "c.tab.cpp"
     break;
 
   case 70: /* logical_and_expression: logical_and_expression AND_OP inclusive_or_expression  */
-#line 199 "c.y"
+#line 201 "c.y"
                                                                 { (yyval.base_node) = new LogicalAndExpressionNode((yyvsp[-2].base_node), (yyvsp[0].base_node)); }
 #line 2390 "c.tab.cpp"
     break;
 
   case 71: /* logical_or_expression: logical_and_expression  */
-#line 203 "c.y"
+#line 205 "c.y"
                                  { (yyval.base_node) = (yyvsp[0].base_node); }
 #line 2396 "c.tab.cpp"
     break;
 
   case 72: /* logical_or_expression: logical_or_expression OR_OP logical_and_expression  */
-#line 204 "c.y"
+#line 206 "c.y"
                                                              { (yyval.base_node) = new LogicalOrExpressionNode((yyvsp[-2].base_node), (yyvsp[0].base_node)); }
 #line 2402 "c.tab.cpp"
     break;
 
   case 73: /* conditional_expression: logical_or_expression  */
-#line 208 "c.y"
+#line 210 "c.y"
                                 { (yyval.base_node) = (yyvsp[0].base_node); }
 #line 2408 "c.tab.cpp"
     break;
 
   case 74: /* conditional_expression: logical_or_expression '?' expression ':' conditional_expression  */
-#line 209 "c.y"
+#line 211 "c.y"
                                                                           { (yyval.base_node) = new ConditionalExpressionNode((yyvsp[-4].base_node), (yyvsp[-2].base_node), (yyvsp[0].base_node)); }
 #line 2414 "c.tab.cpp"
     break;
 
   case 75: /* assignment_expression: conditional_expression  */
-#line 213 "c.y"
+#line 215 "c.y"
                                  { (yyval.base_node) = (yyvsp[0].base_node); }
 #line 2420 "c.tab.cpp"
     break;
 
   case 76: /* assignment_expression: unary_expression assignment_operator assignment_expression  */
-#line 214 "c.y"
+#line 216 "c.y"
                                                                      { (yyval.base_node) = new AssignmentExpressionNode((yyvsp[-2].base_node), (yyvsp[-1].ass_op), (yyvsp[0].base_node)); }
 #line 2426 "c.tab.cpp"
     break;
 
   case 77: /* assignment_operator: '='  */
-#line 218 "c.y"
+#line 220 "c.y"
                       { (yyval.ass_op) = AssignmentOperator::ASSIGN; }
 #line 2432 "c.tab.cpp"
     break;
 
   case 78: /* assignment_operator: MUL_ASSIGN  */
-#line 219 "c.y"
+#line 221 "c.y"
                       { (yyval.ass_op) = AssignmentOperator::MUL_ASSIGN; }
 #line 2438 "c.tab.cpp"
     break;
 
   case 79: /* assignment_operator: DIV_ASSIGN  */
-#line 220 "c.y"
+#line 222 "c.y"
                       { (yyval.ass_op) = AssignmentOperator::DIV_ASSIGN; }
 #line 2444 "c.tab.cpp"
     break;
 
   case 80: /* assignment_operator: MOD_ASSIGN  */
-#line 221 "c.y"
+#line 223 "c.y"
                       { (yyval.ass_op) = AssignmentOperator::MOD_ASSIGN; }
 #line 2450 "c.tab.cpp"
     break;
 
   case 81: /* assignment_operator: ADD_ASSIGN  */
-#line 222 "c.y"
+#line 224 "c.y"
                       { (yyval.ass_op) = AssignmentOperator::ADD_ASSIGN; }
 #line 2456 "c.tab.cpp"
     break;
 
   case 82: /* assignment_operator: SUB_ASSIGN  */
-#line 223 "c.y"
+#line 225 "c.y"
                       { (yyval.ass_op) = AssignmentOperator::SUB_ASSIGN; }
 #line 2462 "c.tab.cpp"
     break;
 
   case 83: /* assignment_operator: LEFT_ASSIGN  */
-#line 224 "c.y"
+#line 226 "c.y"
                       { (yyval.ass_op) = AssignmentOperator::LEFT_ASSIGN; }
 #line 2468 "c.tab.cpp"
     break;
 
   case 84: /* assignment_operator: RIGHT_ASSIGN  */
-#line 225 "c.y"
+#line 227 "c.y"
                       { (yyval.ass_op) = AssignmentOperator::RIGHT_ASSIGN; }
 #line 2474 "c.tab.cpp"
     break;
 
   case 85: /* assignment_operator: AND_ASSIGN  */
-#line 226 "c.y"
+#line 228 "c.y"
                       { (yyval.ass_op) = AssignmentOperator::AND_ASSIGN; }
 #line 2480 "c.tab.cpp"
     break;
 
   case 86: /* assignment_operator: XOR_ASSIGN  */
-#line 227 "c.y"
+#line 229 "c.y"
                       { (yyval.ass_op) = AssignmentOperator::XOR_ASSIGN; }
 #line 2486 "c.tab.cpp"
     break;
 
   case 87: /* assignment_operator: OR_ASSIGN  */
-#line 228 "c.y"
+#line 230 "c.y"
                       { (yyval.ass_op) = AssignmentOperator::OR_ASSIGN; }
 #line 2492 "c.tab.cpp"
     break;
 
   case 88: /* expression: assignment_expression  */
-#line 232 "c.y"
+#line 234 "c.y"
                                 { (yyval.base_node) = new ExpressionListNode(); (yyval.base_node)->addChild((yyvsp[0].base_node)); }
 #line 2498 "c.tab.cpp"
     break;
 
   case 89: /* expression: expression ',' assignment_expression  */
-#line 233 "c.y"
+#line 235 "c.y"
                                                {(yyval.base_node) = (yyvsp[-2].base_node); (yyvsp[-2].base_node)->addChild((yyvsp[0].base_node));}
 #line 2504 "c.tab.cpp"
     break;
 
   case 91: /* declaration: declaration_specifiers ';'  */
-#line 241 "c.y"
+#line 243 "c.y"
                                      { (yyval.base_node) = new DeclarationNode((yyvsp[-1].base_node), new NullPtrNode());}
 #line 2510 "c.tab.cpp"
     break;
 
   case 92: /* declaration: declaration_specifiers init_declarator_list ';'  */
-#line 242 "c.y"
+#line 244 "c.y"
                                                           { (yyval.base_node) = new DeclarationNode((yyvsp[-2].base_node), (yyvsp[-1].base_node)) ;}
 #line 2516 "c.tab.cpp"
     break;
 
   case 93: /* declaration: static_assert_declaration  */
-#line 243 "c.y"
+#line 245 "c.y"
                                     { (yyval.base_node) = new NullPtrNode(); }
 #line 2522 "c.tab.cpp"
     break;
 
   case 94: /* declaration_specifiers: storage_class_specifier declaration_specifiers  */
-#line 247 "c.y"
+#line 249 "c.y"
                                                          {(yyval.base_node) = (yyvsp[0].base_node); (yyvsp[0].base_node)->addChild((yyvsp[-1].base_node));}
 #line 2528 "c.tab.cpp"
     break;
 
   case 95: /* declaration_specifiers: storage_class_specifier  */
-#line 248 "c.y"
+#line 250 "c.y"
                                   {(yyval.base_node) = new DeclarationSpecifiersNode(); (yyval.base_node)->addChild((yyvsp[0].base_node));}
 #line 2534 "c.tab.cpp"
     break;
 
   case 96: /* declaration_specifiers: type_specifier declaration_specifiers  */
-#line 249 "c.y"
+#line 251 "c.y"
                                                 {(yyval.base_node) = (yyvsp[0].base_node); (yyvsp[0].base_node)->addChild((yyvsp[-1].base_node));}
 #line 2540 "c.tab.cpp"
     break;
 
   case 97: /* declaration_specifiers: type_specifier  */
-#line 250 "c.y"
+#line 252 "c.y"
                          {(yyval.base_node) = new DeclarationSpecifiersNode(); (yyval.base_node)->addChild((yyvsp[0].base_node));}
 #line 2546 "c.tab.cpp"
     break;
 
   case 98: /* declaration_specifiers: type_qualifier declaration_specifiers  */
-#line 251 "c.y"
+#line 253 "c.y"
                                                 {(yyval.base_node) = (yyvsp[0].base_node); (yyvsp[0].base_node)->addChild((yyvsp[-1].base_node));}
 #line 2552 "c.tab.cpp"
     break;
 
   case 99: /* declaration_specifiers: type_qualifier  */
-#line 252 "c.y"
+#line 254 "c.y"
                          {(yyval.base_node) = new DeclarationSpecifiersNode(); (yyval.base_node)->addChild((yyvsp[0].base_node));}
 #line 2558 "c.tab.cpp"
     break;
 
   case 100: /* declaration_specifiers: function_specifier declaration_specifiers  */
-#line 253 "c.y"
+#line 255 "c.y"
                                                     {(yyval.base_node) = (yyvsp[0].base_node); (yyvsp[0].base_node)->addChild((yyvsp[-1].base_node));}
 #line 2564 "c.tab.cpp"
     break;
 
   case 101: /* declaration_specifiers: function_specifier  */
-#line 254 "c.y"
+#line 256 "c.y"
                              {(yyval.base_node) = new DeclarationSpecifiersNode(); (yyval.base_node)->addChild((yyvsp[0].base_node));}
 #line 2570 "c.tab.cpp"
     break;
 
   case 102: /* declaration_specifiers: alignment_specifier declaration_specifiers  */
-#line 255 "c.y"
+#line 257 "c.y"
                                                      {(yyval.base_node) = (yyvsp[0].base_node); (yyvsp[0].base_node)->addChild((yyvsp[-1].base_node));}
 #line 2576 "c.tab.cpp"
     break;
 
   case 103: /* declaration_specifiers: alignment_specifier  */
-#line 256 "c.y"
+#line 258 "c.y"
                               {(yyval.base_node) = new DeclarationSpecifiersNode(); (yyval.base_node)->addChild((yyvsp[0].base_node));}
 #line 2582 "c.tab.cpp"
     break;
 
   case 104: /* init_declarator_list: init_declarator  */
-#line 260 "c.y"
+#line 262 "c.y"
                           { (yyval.base_node) = new InitDeclartorListNode(); (yyval.base_node)->addChild((yyvsp[0].base_node)); }
 #line 2588 "c.tab.cpp"
     break;
 
   case 105: /* init_declarator_list: init_declarator_list ',' init_declarator  */
-#line 261 "c.y"
+#line 263 "c.y"
                                                    {(yyval.base_node) = (yyvsp[-2].base_node); (yyvsp[-2].base_node)->addChild((yyvsp[0].base_node));}
 #line 2594 "c.tab.cpp"
     break;
 
   case 106: /* init_declarator: declarator '=' initializer  */
-#line 266 "c.y"
+#line 268 "c.y"
                                      { (yyval.base_node) = new InitDeclartorNode((yyvsp[-2].base_node),(yyvsp[0].base_node)); }
 #line 2600 "c.tab.cpp"
     break;
 
   case 107: /* init_declarator: declarator  */
-#line 267 "c.y"
+#line 269 "c.y"
                      { (yyval.base_node) = new InitDeclartorNode((yyvsp[0].base_node), new NullPtrNode()); }
 #line 2606 "c.tab.cpp"
     break;
 
   case 108: /* storage_class_specifier: TYPEDEF  */
-#line 272 "c.y"
+#line 274 "c.y"
               { (yyval.base_node) = new SpecifierNode(SpecifierEnum::TYPEDEF); }
 #line 2612 "c.tab.cpp"
     break;
 
   case 109: /* storage_class_specifier: EXTERN  */
-#line 273 "c.y"
+#line 275 "c.y"
               { (yyval.base_node) = new SpecifierNode(SpecifierEnum::EXTERN); }
 #line 2618 "c.tab.cpp"
     break;
 
   case 110: /* storage_class_specifier: STATIC  */
-#line 274 "c.y"
+#line 276 "c.y"
               { (yyval.base_node) = new SpecifierNode(SpecifierEnum::STATIC); }
 #line 2624 "c.tab.cpp"
     break;
 
   case 111: /* storage_class_specifier: THREAD_LOCAL  */
-#line 275 "c.y"
+#line 277 "c.y"
                     { (yyval.base_node) = new SpecifierNode(SpecifierEnum::THREAD_LOCAL); }
 #line 2630 "c.tab.cpp"
     break;
 
   case 112: /* storage_class_specifier: AUTO  */
-#line 276 "c.y"
+#line 278 "c.y"
               { (yyval.base_node) = new SpecifierNode(SpecifierEnum::AUTO); }
 #line 2636 "c.tab.cpp"
     break;
 
   case 113: /* storage_class_specifier: REGISTER  */
-#line 277 "c.y"
+#line 279 "c.y"
                { (yyval.base_node) = new SpecifierNode(SpecifierEnum::REGISTER); }
 #line 2642 "c.tab.cpp"
     break;
 
   case 114: /* type_specifier: VOID  */
-#line 281 "c.y"
+#line 283 "c.y"
               { (yyval.base_node) = new SpecifierNode(SpecifierEnum::VOID); }
 #line 2648 "c.tab.cpp"
     break;
 
   case 115: /* type_specifier: CHAR  */
-#line 282 "c.y"
+#line 284 "c.y"
               { (yyval.base_node) = new SpecifierNode(SpecifierEnum::CHAR); }
 #line 2654 "c.tab.cpp"
     break;
 
   case 116: /* type_specifier: SHORT  */
-#line 283 "c.y"
+#line 285 "c.y"
               { (yyval.base_node) = new SpecifierNode(SpecifierEnum::SHORT); }
 #line 2660 "c.tab.cpp"
     break;
 
   case 117: /* type_specifier: INT  */
-#line 284 "c.y"
+#line 286 "c.y"
               { (yyval.base_node) = new SpecifierNode(SpecifierEnum::INT); }
 #line 2666 "c.tab.cpp"
     break;
 
   case 118: /* type_specifier: LONG  */
-#line 285 "c.y"
+#line 287 "c.y"
               { (yyval.base_node) = new SpecifierNode(SpecifierEnum::LONG); }
 #line 2672 "c.tab.cpp"
     break;
 
   case 119: /* type_specifier: FLOAT  */
-#line 286 "c.y"
+#line 288 "c.y"
               { (yyval.base_node) = new SpecifierNode(SpecifierEnum::FLOAT); }
 #line 2678 "c.tab.cpp"
     break;
 
   case 120: /* type_specifier: DOUBLE  */
-#line 287 "c.y"
+#line 289 "c.y"
               { (yyval.base_node) = new SpecifierNode(SpecifierEnum::DOUBLE); }
 #line 2684 "c.tab.cpp"
     break;
 
   case 121: /* type_specifier: SIGNED  */
-#line 288 "c.y"
+#line 290 "c.y"
               { (yyval.base_node) = new SpecifierNode(SpecifierEnum::SIGNED); }
 #line 2690 "c.tab.cpp"
     break;
 
   case 122: /* type_specifier: UNSIGNED  */
-#line 289 "c.y"
+#line 291 "c.y"
                { (yyval.base_node) = new SpecifierNode(SpecifierEnum::UNSIGNED); }
 #line 2696 "c.tab.cpp"
     break;
 
   case 123: /* type_specifier: BOOL  */
-#line 290 "c.y"
+#line 292 "c.y"
               { (yyval.base_node) = new SpecifierNode(SpecifierEnum::BOOL); }
 #line 2702 "c.tab.cpp"
     break;
 
   case 124: /* type_specifier: COMPLEX  */
-#line 291 "c.y"
+#line 293 "c.y"
               { (yyval.base_node) = new SpecifierNode(SpecifierEnum::COMPLEX); }
 #line 2708 "c.tab.cpp"
     break;
 
   case 125: /* type_specifier: IMAGINARY  */
-#line 292 "c.y"
+#line 294 "c.y"
                 { (yyval.base_node) = new SpecifierNode(SpecifierEnum::IMAGINARY); }
 #line 2714 "c.tab.cpp"
     break;
 
   case 126: /* type_specifier: atomic_type_specifier  */
-#line 293 "c.y"
+#line 295 "c.y"
                             {(yyval.base_node) = new NullPtrNode();}
 #line 2720 "c.tab.cpp"
     break;
 
   case 127: /* type_specifier: struct_or_union_specifier  */
-#line 294 "c.y"
+#line 296 "c.y"
                                 {(yyval.base_node) = new NullPtrNode();}
 #line 2726 "c.tab.cpp"
     break;
 
   case 128: /* type_specifier: enum_specifier  */
-#line 295 "c.y"
+#line 297 "c.y"
                      {(yyval.base_node) = new NullPtrNode();}
 #line 2732 "c.tab.cpp"
     break;
 
   case 129: /* type_specifier: TYPEDEF_NAME  */
-#line 296 "c.y"
+#line 298 "c.y"
                    { (yyval.base_node) = new SpecifierNode(SpecifierEnum::TYPEDEF_NAME); }
 #line 2738 "c.tab.cpp"
     break;
 
   case 130: /* struct_or_union_specifier: struct_or_union '{' struct_declaration_list '}'  */
-#line 300 "c.y"
+#line 302 "c.y"
                                                           { (yyval.base_node) = new NullPtrNode(); }
 #line 2744 "c.tab.cpp"
     break;
 
   case 131: /* struct_or_union_specifier: struct_or_union IDENTIFIER '{' struct_declaration_list '}'  */
-#line 301 "c.y"
+#line 303 "c.y"
                                                                      { (yyval.base_node) = new NullPtrNode(); }
 #line 2750 "c.tab.cpp"
     break;
 
   case 132: /* struct_or_union_specifier: struct_or_union IDENTIFIER  */
-#line 302 "c.y"
+#line 304 "c.y"
                                      { (yyval.base_node) = new NullPtrNode(); }
 #line 2756 "c.tab.cpp"
     break;
 
   case 149: /* enum_specifier: ENUM '{' enumerator_list '}'  */
-#line 340 "c.y"
+#line 342 "c.y"
                                        { (yyval.base_node) = new NullPtrNode(); }
 #line 2762 "c.tab.cpp"
     break;
 
   case 150: /* enum_specifier: ENUM '{' enumerator_list ',' '}'  */
-#line 341 "c.y"
+#line 343 "c.y"
                                            { (yyval.base_node) = new NullPtrNode(); }
 #line 2768 "c.tab.cpp"
     break;
 
   case 151: /* enum_specifier: ENUM IDENTIFIER '{' enumerator_list '}'  */
-#line 342 "c.y"
+#line 344 "c.y"
                                                   { (yyval.base_node) = new NullPtrNode(); }
 #line 2774 "c.tab.cpp"
     break;
 
   case 152: /* enum_specifier: ENUM IDENTIFIER '{' enumerator_list ',' '}'  */
-#line 343 "c.y"
+#line 345 "c.y"
                                                       { (yyval.base_node) = new NullPtrNode(); }
 #line 2780 "c.tab.cpp"
     break;
 
   case 153: /* enum_specifier: ENUM IDENTIFIER  */
-#line 344 "c.y"
+#line 346 "c.y"
                           { (yyval.base_node) = new NullPtrNode(); }
 #line 2786 "c.tab.cpp"
     break;
 
   case 159: /* type_qualifier: CONST  */
-#line 362 "c.y"
+#line 364 "c.y"
                 { (yyval.base_node) = new SpecifierNode(SpecifierEnum::CONST); }
 #line 2792 "c.tab.cpp"
     break;
 
   case 160: /* type_qualifier: RESTRICT  */
-#line 363 "c.y"
+#line 365 "c.y"
                    { (yyval.base_node) = new SpecifierNode(SpecifierEnum::RESTRICT); }
 #line 2798 "c.tab.cpp"
     break;
 
   case 161: /* type_qualifier: VOLATILE  */
-#line 364 "c.y"
+#line 366 "c.y"
                    { (yyval.base_node) = new SpecifierNode(SpecifierEnum::VOLATILE); }
 #line 2804 "c.tab.cpp"
     break;
 
   case 162: /* type_qualifier: ATOMIC  */
-#line 365 "c.y"
+#line 367 "c.y"
                  { (yyval.base_node) = new SpecifierNode(SpecifierEnum::ATOMIC); }
 #line 2810 "c.tab.cpp"
     break;
 
   case 163: /* function_specifier: INLINE  */
-#line 369 "c.y"
+#line 371 "c.y"
                  { (yyval.base_node) = new SpecifierNode(SpecifierEnum::INLINE); }
 #line 2816 "c.tab.cpp"
     break;
 
   case 164: /* function_specifier: NORETURN  */
-#line 370 "c.y"
+#line 372 "c.y"
                    { (yyval.base_node) = new SpecifierNode(SpecifierEnum::NORETURN); }
 #line 2822 "c.tab.cpp"
     break;
 
   case 165: /* alignment_specifier: ALIGNAS '(' type_name ')'  */
-#line 374 "c.y"
+#line 376 "c.y"
                                     { (yyval.base_node) = new NullPtrNode(); }
 #line 2828 "c.tab.cpp"
     break;
 
   case 166: /* alignment_specifier: ALIGNAS '(' constant_expression ')'  */
-#line 375 "c.y"
+#line 377 "c.y"
                                               { (yyval.base_node) = new NullPtrNode(); }
 #line 2834 "c.tab.cpp"
     break;
 
   case 167: /* declarator: pointer direct_declarator  */
-#line 379 "c.y"
-                                    { (yyval.base_node) = new DeclaratorNode(new NullPtrNode(), (yyvsp[0].base_node)); }
+#line 381 "c.y"
+                                    { (yyval.base_node) = new DeclaratorNode((yyvsp[-1].base_node), (yyvsp[0].base_node)); }
 #line 2840 "c.tab.cpp"
     break;
 
   case 168: /* declarator: direct_declarator  */
-#line 380 "c.y"
+#line 382 "c.y"
                             { (yyval.base_node) = (yyvsp[0].base_node);}
 #line 2846 "c.tab.cpp"
     break;
 
   case 169: /* direct_declarator: IDENTIFIER  */
-#line 384 "c.y"
+#line 386 "c.y"
                      {(yyval.base_node) = new IdentifierNode((yyvsp[0].str));}
 #line 2852 "c.tab.cpp"
     break;
 
   case 170: /* direct_declarator: '(' declarator ')'  */
-#line 385 "c.y"
+#line 387 "c.y"
                              { (yyval.base_node) = (yyvsp[-1].base_node); }
 #line 2858 "c.tab.cpp"
     break;
 
   case 171: /* direct_declarator: direct_declarator '[' ']'  */
-#line 386 "c.y"
+#line 388 "c.y"
                                     {(yyval.base_node) = new NullPtrNode();}
 #line 2864 "c.tab.cpp"
     break;
 
   case 172: /* direct_declarator: direct_declarator '[' '*' ']'  */
-#line 387 "c.y"
+#line 389 "c.y"
                                         {(yyval.base_node) = new NullPtrNode();}
 #line 2870 "c.tab.cpp"
     break;
 
   case 173: /* direct_declarator: direct_declarator '[' STATIC type_qualifier_list assignment_expression ']'  */
-#line 388 "c.y"
+#line 390 "c.y"
                                                                                      {(yyval.base_node) = new NullPtrNode();}
 #line 2876 "c.tab.cpp"
     break;
 
   case 174: /* direct_declarator: direct_declarator '[' STATIC assignment_expression ']'  */
-#line 389 "c.y"
+#line 391 "c.y"
                                                                  {(yyval.base_node) = new NullPtrNode();}
 #line 2882 "c.tab.cpp"
     break;
 
   case 175: /* direct_declarator: direct_declarator '[' type_qualifier_list '*' ']'  */
-#line 390 "c.y"
+#line 392 "c.y"
                                                             {(yyval.base_node) = new NullPtrNode();}
 #line 2888 "c.tab.cpp"
     break;
 
   case 176: /* direct_declarator: direct_declarator '[' type_qualifier_list STATIC assignment_expression ']'  */
-#line 391 "c.y"
+#line 393 "c.y"
                                                                                      {(yyval.base_node) = new NullPtrNode();}
 #line 2894 "c.tab.cpp"
     break;
 
   case 177: /* direct_declarator: direct_declarator '[' type_qualifier_list assignment_expression ']'  */
-#line 392 "c.y"
+#line 394 "c.y"
                                                                               {(yyval.base_node) = new NullPtrNode();}
 #line 2900 "c.tab.cpp"
     break;
 
   case 178: /* direct_declarator: direct_declarator '[' type_qualifier_list ']'  */
-#line 393 "c.y"
+#line 395 "c.y"
                                                         {(yyval.base_node) = new NullPtrNode();}
 #line 2906 "c.tab.cpp"
     break;
 
   case 179: /* direct_declarator: direct_declarator '[' assignment_expression ']'  */
-#line 394 "c.y"
+#line 396 "c.y"
                                                           {(yyval.base_node) = new NullPtrNode();}
 #line 2912 "c.tab.cpp"
     break;
 
   case 180: /* direct_declarator: direct_declarator '(' parameter_type_list ')'  */
-#line 395 "c.y"
-                                                        {(yyval.base_node) = new DirectDeclaratorNode((yyvsp[-3].base_node), (yyvsp[-1].base_node) ) ;}
+#line 397 "c.y"
+                                                        {(yyval.base_node) = new FunctionDeclarationNode((yyvsp[-3].base_node), (yyvsp[-1].base_node) ) ;}
 #line 2918 "c.tab.cpp"
     break;
 
   case 181: /* direct_declarator: direct_declarator '(' ')'  */
-#line 396 "c.y"
-                                    {(yyval.base_node) = new DirectDeclaratorNode((yyvsp[-2].base_node), new NullPtrNode()) ;}
+#line 398 "c.y"
+                                    {(yyval.base_node) = new FunctionDeclarationNode((yyvsp[-2].base_node), new NullPtrNode()) ;}
 #line 2924 "c.tab.cpp"
     break;
 
   case 182: /* direct_declarator: direct_declarator '(' identifier_list ')'  */
-#line 397 "c.y"
+#line 399 "c.y"
                                                      {(yyval.base_node) = new NullPtrNode();}
 #line 2930 "c.tab.cpp"
     break;
 
-  case 189: /* parameter_type_list: parameter_list ',' ELLIPSIS  */
-#line 414 "c.y"
-                                      {(yyval.base_node) = (yyvsp[-2].base_node);}
+  case 183: /* pointer: '*' type_qualifier_list pointer  */
+#line 403 "c.y"
+                                          {(yyval.base_node) = new PointerNode( (yyvsp[0].base_node)); }
 #line 2936 "c.tab.cpp"
     break;
 
-  case 190: /* parameter_type_list: parameter_list  */
-#line 415 "c.y"
-                         {(yyval.base_node) = (yyvsp[0].base_node);}
+  case 184: /* pointer: '*' type_qualifier_list  */
+#line 404 "c.y"
+                                  {(yyval.base_node) = new PointerNode(new NullPtrNode()); }
 #line 2942 "c.tab.cpp"
     break;
 
-  case 191: /* parameter_list: parameter_declaration  */
-#line 419 "c.y"
-                                { (yyval.base_node) = new ParameterListNode(); (yyval.base_node)->addChild((yyvsp[0].base_node)); }
+  case 185: /* pointer: '*' pointer  */
+#line 405 "c.y"
+                      { (yyval.base_node) = new PointerNode((yyvsp[0].base_node)); }
 #line 2948 "c.tab.cpp"
     break;
 
-  case 192: /* parameter_list: parameter_list ',' parameter_declaration  */
-#line 420 "c.y"
-                                                   { (yyval.base_node) = (yyvsp[-2].base_node); (yyvsp[-2].base_node)->addChild((yyvsp[0].base_node)); }
+  case 186: /* pointer: '*'  */
+#line 406 "c.y"
+              {(yyval.base_node) = new PointerNode(new NullPtrNode()); }
 #line 2954 "c.tab.cpp"
     break;
 
-  case 193: /* parameter_declaration: declaration_specifiers declarator  */
-#line 424 "c.y"
-                                            { (yyval.base_node) = new ParameterDeclarationNode((yyvsp[-1].base_node), (yyvsp[0].base_node)); }
+  case 189: /* parameter_type_list: parameter_list ',' ELLIPSIS  */
+#line 416 "c.y"
+                                      {(yyval.base_node) = (yyvsp[-2].base_node); (yyvsp[-2].base_node)->variadic = true;}
 #line 2960 "c.tab.cpp"
     break;
 
-  case 194: /* parameter_declaration: declaration_specifiers abstract_declarator  */
-#line 425 "c.y"
-                                                     { (yyval.base_node) = new ParameterDeclarationNode((yyvsp[-1].base_node), (yyvsp[0].base_node)); }
+  case 190: /* parameter_type_list: parameter_list  */
+#line 417 "c.y"
+                         {(yyval.base_node) = (yyvsp[0].base_node);}
 #line 2966 "c.tab.cpp"
     break;
 
-  case 195: /* parameter_declaration: declaration_specifiers  */
-#line 426 "c.y"
-                                 { (yyval.base_node) = new ParameterDeclarationNode((yyvsp[0].base_node), new NullPtrNode()); }
+  case 191: /* parameter_list: parameter_declaration  */
+#line 421 "c.y"
+                                { (yyval.base_node) = new ParameterListNode(); (yyval.base_node)->addChild((yyvsp[0].base_node)); }
 #line 2972 "c.tab.cpp"
     break;
 
-  case 196: /* identifier_list: IDENTIFIER  */
-#line 430 "c.y"
-                     { (yyval.base_node) = new IdentifierListNode(); (yyval.base_node)->addChild(new IdentifierNode((yyvsp[0].str)));}
+  case 192: /* parameter_list: parameter_list ',' parameter_declaration  */
+#line 422 "c.y"
+                                                   { (yyval.base_node) = (yyvsp[-2].base_node); (yyvsp[-2].base_node)->addChild((yyvsp[0].base_node)); }
 #line 2978 "c.tab.cpp"
     break;
 
-  case 197: /* identifier_list: identifier_list ',' IDENTIFIER  */
-#line 431 "c.y"
-                                         { (yyval.base_node) = (yyvsp[-2].base_node); (yyvsp[-2].base_node)->addChild(new IdentifierNode((yyvsp[0].str))); }
+  case 193: /* parameter_declaration: declaration_specifiers declarator  */
+#line 426 "c.y"
+                                            { (yyval.base_node) = new ParameterDeclarationNode((yyvsp[-1].base_node), (yyvsp[0].base_node)); }
 #line 2984 "c.tab.cpp"
     break;
 
-  case 200: /* abstract_declarator: pointer direct_abstract_declarator  */
-#line 440 "c.y"
-                                             { (yyval.base_node) = new NullPtrNode(); }
+  case 194: /* parameter_declaration: declaration_specifiers abstract_declarator  */
+#line 427 "c.y"
+                                                     { (yyval.base_node) = new ParameterDeclarationNode((yyvsp[-1].base_node), (yyvsp[0].base_node)); }
 #line 2990 "c.tab.cpp"
     break;
 
-  case 201: /* abstract_declarator: pointer  */
-#line 441 "c.y"
-                  { (yyval.base_node) = new NullPtrNode(); }
+  case 195: /* parameter_declaration: declaration_specifiers  */
+#line 428 "c.y"
+                                 { (yyval.base_node) = new ParameterDeclarationNode((yyvsp[0].base_node), new NullPtrNode()); }
 #line 2996 "c.tab.cpp"
     break;
 
-  case 202: /* abstract_declarator: direct_abstract_declarator  */
-#line 442 "c.y"
-                                     { (yyval.base_node) = new NullPtrNode(); }
+  case 196: /* identifier_list: IDENTIFIER  */
+#line 432 "c.y"
+                     { (yyval.base_node) = new IdentifierListNode(); (yyval.base_node)->addChild(new IdentifierNode((yyvsp[0].str)));}
 #line 3002 "c.tab.cpp"
     break;
 
-  case 224: /* initializer: '{' initializer_list '}'  */
-#line 470 "c.y"
-                                   { (yyval.base_node) = new NullPtrNode(); }
+  case 197: /* identifier_list: identifier_list ',' IDENTIFIER  */
+#line 433 "c.y"
+                                         { (yyval.base_node) = (yyvsp[-2].base_node); (yyvsp[-2].base_node)->addChild(new IdentifierNode((yyvsp[0].str))); }
 #line 3008 "c.tab.cpp"
     break;
 
-  case 225: /* initializer: '{' initializer_list ',' '}'  */
-#line 471 "c.y"
-                                       { (yyval.base_node) = new NullPtrNode(); }
+  case 200: /* abstract_declarator: pointer direct_abstract_declarator  */
+#line 442 "c.y"
+                                             { (yyval.base_node) = new NullPtrNode(); }
 #line 3014 "c.tab.cpp"
     break;
 
-  case 226: /* initializer: assignment_expression  */
-#line 472 "c.y"
-                                { (yyval.base_node) = (yyvsp[0].base_node); }
+  case 201: /* abstract_declarator: pointer  */
+#line 443 "c.y"
+                  { (yyval.base_node) = new NullPtrNode(); }
 #line 3020 "c.tab.cpp"
     break;
 
-  case 237: /* statement: labeled_statement  */
-#line 501 "c.y"
-                            { (yyval.base_node) = (yyvsp[0].base_node); }
+  case 202: /* abstract_declarator: direct_abstract_declarator  */
+#line 444 "c.y"
+                                     { (yyval.base_node) = new NullPtrNode(); }
 #line 3026 "c.tab.cpp"
     break;
 
-  case 238: /* statement: compound_statement  */
-#line 502 "c.y"
-                             { (yyval.base_node) = (yyvsp[0].base_node); }
+  case 224: /* initializer: '{' initializer_list '}'  */
+#line 472 "c.y"
+                                   { (yyval.base_node) = new NullPtrNode(); }
 #line 3032 "c.tab.cpp"
     break;
 
-  case 239: /* statement: expression_statement  */
-#line 503 "c.y"
-                               { (yyval.base_node) = (yyvsp[0].base_node); }
+  case 225: /* initializer: '{' initializer_list ',' '}'  */
+#line 473 "c.y"
+                                       { (yyval.base_node) = new NullPtrNode(); }
 #line 3038 "c.tab.cpp"
     break;
 
-  case 240: /* statement: selection_statement  */
-#line 504 "c.y"
-                              { (yyval.base_node) = (yyvsp[0].base_node); }
+  case 226: /* initializer: assignment_expression  */
+#line 474 "c.y"
+                                { (yyval.base_node) = (yyvsp[0].base_node); }
 #line 3044 "c.tab.cpp"
     break;
 
-  case 241: /* statement: iteration_statement  */
-#line 505 "c.y"
-                              { (yyval.base_node) = (yyvsp[0].base_node); }
+  case 237: /* statement: labeled_statement  */
+#line 503 "c.y"
+                            { (yyval.base_node) = (yyvsp[0].base_node); }
 #line 3050 "c.tab.cpp"
     break;
 
-  case 242: /* statement: jump_statement  */
-#line 506 "c.y"
-                         { (yyval.base_node) = (yyvsp[0].base_node); }
+  case 238: /* statement: compound_statement  */
+#line 504 "c.y"
+                             { (yyval.base_node) = (yyvsp[0].base_node); }
 #line 3056 "c.tab.cpp"
     break;
 
-  case 243: /* labeled_statement: IDENTIFIER ':' statement  */
-#line 510 "c.y"
-                                   { (yyval.base_node) = new LabelStatementNode(new IdentifierNode((yyvsp[-2].str)), (yyvsp[0].base_node)); }
+  case 239: /* statement: expression_statement  */
+#line 505 "c.y"
+                               { (yyval.base_node) = (yyvsp[0].base_node); }
 #line 3062 "c.tab.cpp"
     break;
 
-  case 244: /* labeled_statement: CASE constant_expression ':' statement  */
-#line 511 "c.y"
-                                                 {(yyval.base_node) = new CaseLabelStatementNode((yyvsp[-2].base_node), (yyvsp[0].base_node));}
+  case 240: /* statement: selection_statement  */
+#line 506 "c.y"
+                              { (yyval.base_node) = (yyvsp[0].base_node); }
 #line 3068 "c.tab.cpp"
     break;
 
-  case 245: /* labeled_statement: DEFAULT ':' statement  */
-#line 512 "c.y"
-                                {(yyval.base_node) = new DefaultLabelStatementNode((yyvsp[0].base_node));}
+  case 241: /* statement: iteration_statement  */
+#line 507 "c.y"
+                              { (yyval.base_node) = (yyvsp[0].base_node); }
 #line 3074 "c.tab.cpp"
     break;
 
-  case 246: /* compound_statement: '{' '}'  */
-#line 516 "c.y"
-                  {(yyval.base_node) = new CompoundStatementNode();}
+  case 242: /* statement: jump_statement  */
+#line 508 "c.y"
+                         { (yyval.base_node) = (yyvsp[0].base_node); }
 #line 3080 "c.tab.cpp"
     break;
 
-  case 247: /* compound_statement: '{' block_item_list '}'  */
-#line 517 "c.y"
-                                   {(yyval.base_node) = (yyvsp[-1].base_node);}
+  case 243: /* labeled_statement: IDENTIFIER ':' statement  */
+#line 512 "c.y"
+                                   { (yyval.base_node) = new LabelStatementNode(new IdentifierNode((yyvsp[-2].str)), (yyvsp[0].base_node)); }
 #line 3086 "c.tab.cpp"
     break;
 
-  case 248: /* block_item_list: block_item  */
-#line 521 "c.y"
-                     {(yyval.base_node) = new CompoundStatementNode(); (yyval.base_node)->addChild((yyvsp[0].base_node));}
+  case 244: /* labeled_statement: CASE constant_expression ':' statement  */
+#line 513 "c.y"
+                                                 {(yyval.base_node) = new CaseLabelStatementNode((yyvsp[-2].base_node), (yyvsp[0].base_node));}
 #line 3092 "c.tab.cpp"
     break;
 
-  case 249: /* block_item_list: block_item_list block_item  */
-#line 522 "c.y"
-                                     {(yyval.base_node) = (yyvsp[-1].base_node); (yyvsp[-1].base_node)->addChild((yyvsp[0].base_node));}
+  case 245: /* labeled_statement: DEFAULT ':' statement  */
+#line 514 "c.y"
+                                {(yyval.base_node) = new DefaultLabelStatementNode((yyvsp[0].base_node));}
 #line 3098 "c.tab.cpp"
     break;
 
-  case 250: /* block_item: declaration  */
-#line 526 "c.y"
-                      {(yyval.base_node) = (yyvsp[0].base_node);}
+  case 246: /* compound_statement: '{' '}'  */
+#line 518 "c.y"
+                  {(yyval.base_node) = new CompoundStatementNode();}
 #line 3104 "c.tab.cpp"
     break;
 
-  case 251: /* block_item: statement  */
-#line 527 "c.y"
-                    {(yyval.base_node) = (yyvsp[0].base_node);}
+  case 247: /* compound_statement: '{' block_item_list '}'  */
+#line 519 "c.y"
+                                   {(yyval.base_node) = (yyvsp[-1].base_node);}
 #line 3110 "c.tab.cpp"
     break;
 
-  case 252: /* expression_statement: ';'  */
-#line 531 "c.y"
-              {(yyval.base_node) = new NullPtrNode();}
+  case 248: /* block_item_list: block_item  */
+#line 523 "c.y"
+                     {(yyval.base_node) = new CompoundStatementNode(); (yyval.base_node)->addChild((yyvsp[0].base_node));}
 #line 3116 "c.tab.cpp"
     break;
 
-  case 253: /* expression_statement: expression ';'  */
-#line 532 "c.y"
-                         {(yyval.base_node) = (yyvsp[-1].base_node);}
+  case 249: /* block_item_list: block_item_list block_item  */
+#line 524 "c.y"
+                                     {(yyval.base_node) = (yyvsp[-1].base_node); (yyvsp[-1].base_node)->addChild((yyvsp[0].base_node));}
 #line 3122 "c.tab.cpp"
     break;
 
-  case 254: /* selection_statement: IF '(' expression ')' statement ELSE statement  */
-#line 536 "c.y"
-                                                         { (yyval.base_node) = new IfElseStatementNode((yyvsp[-4].base_node), (yyvsp[-2].base_node), (yyvsp[0].base_node)); }
+  case 250: /* block_item: declaration  */
+#line 528 "c.y"
+                      {(yyval.base_node) = (yyvsp[0].base_node);}
 #line 3128 "c.tab.cpp"
     break;
 
-  case 255: /* selection_statement: IF '(' expression ')' statement  */
-#line 537 "c.y"
-                                          { (yyval.base_node) = new IfElseStatementNode((yyvsp[-2].base_node), (yyvsp[0].base_node), new NullPtrNode()); }
+  case 251: /* block_item: statement  */
+#line 529 "c.y"
+                    {(yyval.base_node) = (yyvsp[0].base_node);}
 #line 3134 "c.tab.cpp"
     break;
 
-  case 256: /* selection_statement: SWITCH '(' expression ')' statement  */
-#line 538 "c.y"
-                                              { (yyval.base_node) = new SwitchStatementNode((yyvsp[-2].base_node), (yyvsp[0].base_node)); }
+  case 252: /* expression_statement: ';'  */
+#line 533 "c.y"
+              {(yyval.base_node) = new NullPtrNode();}
 #line 3140 "c.tab.cpp"
     break;
 
-  case 257: /* iteration_statement: WHILE '(' expression ')' statement  */
-#line 542 "c.y"
-                                             { (yyval.base_node) = new WhileStatementNode((yyvsp[-2].base_node), (yyvsp[0].base_node)); }
+  case 253: /* expression_statement: expression ';'  */
+#line 534 "c.y"
+                         {(yyval.base_node) = (yyvsp[-1].base_node);}
 #line 3146 "c.tab.cpp"
     break;
 
-  case 258: /* iteration_statement: DO statement WHILE '(' expression ')' ';'  */
-#line 543 "c.y"
-                                                    { (yyval.base_node) = new DoWhileStatementNode((yyvsp[-5].base_node), (yyvsp[-2].base_node)); }
+  case 254: /* selection_statement: IF '(' expression ')' statement ELSE statement  */
+#line 538 "c.y"
+                                                         { (yyval.base_node) = new IfElseStatementNode((yyvsp[-4].base_node), (yyvsp[-2].base_node), (yyvsp[0].base_node)); }
 #line 3152 "c.tab.cpp"
     break;
 
-  case 259: /* iteration_statement: FOR '(' expression_statement expression_statement ')' statement  */
-#line 544 "c.y"
-                                                                          { (yyval.base_node) = new ForStatementNode((yyvsp[-3].base_node), (yyvsp[-2].base_node), new NullPtrNode(), (yyvsp[0].base_node)); }
+  case 255: /* selection_statement: IF '(' expression ')' statement  */
+#line 539 "c.y"
+                                          { (yyval.base_node) = new IfElseStatementNode((yyvsp[-2].base_node), (yyvsp[0].base_node), new NullPtrNode()); }
 #line 3158 "c.tab.cpp"
     break;
 
-  case 260: /* iteration_statement: FOR '(' expression_statement expression_statement expression ')' statement  */
-#line 545 "c.y"
-                                                                                     { (yyval.base_node) = new ForStatementNode((yyvsp[-4].base_node), (yyvsp[-3].base_node), (yyvsp[-2].base_node), (yyvsp[0].base_node)); }
+  case 256: /* selection_statement: SWITCH '(' expression ')' statement  */
+#line 540 "c.y"
+                                              { (yyval.base_node) = new SwitchStatementNode((yyvsp[-2].base_node), (yyvsp[0].base_node)); }
 #line 3164 "c.tab.cpp"
     break;
 
-  case 261: /* iteration_statement: FOR '(' declaration expression_statement ')' statement  */
-#line 546 "c.y"
-                                                                 { (yyval.base_node) = new ForStatementNode((yyvsp[-3].base_node), (yyvsp[-2].base_node), new NullPtrNode(), (yyvsp[0].base_node)); }
+  case 257: /* iteration_statement: WHILE '(' expression ')' statement  */
+#line 544 "c.y"
+                                             { (yyval.base_node) = new WhileStatementNode((yyvsp[-2].base_node), (yyvsp[0].base_node)); }
 #line 3170 "c.tab.cpp"
     break;
 
-  case 262: /* iteration_statement: FOR '(' declaration expression_statement expression ')' statement  */
-#line 547 "c.y"
-                                                                            { (yyval.base_node) = new ForStatementNode((yyvsp[-4].base_node), (yyvsp[-3].base_node), (yyvsp[-2].base_node), (yyvsp[0].base_node)); }
+  case 258: /* iteration_statement: DO statement WHILE '(' expression ')' ';'  */
+#line 545 "c.y"
+                                                    { (yyval.base_node) = new DoWhileStatementNode((yyvsp[-5].base_node), (yyvsp[-2].base_node)); }
 #line 3176 "c.tab.cpp"
     break;
 
-  case 263: /* jump_statement: GOTO IDENTIFIER ';'  */
-#line 551 "c.y"
-                              { (yyval.base_node) = new GotoStatementNode(new IdentifierNode((yyvsp[-1].str))); }
+  case 259: /* iteration_statement: FOR '(' expression_statement expression_statement ')' statement  */
+#line 546 "c.y"
+                                                                          { (yyval.base_node) = new ForStatementNode((yyvsp[-3].base_node), (yyvsp[-2].base_node), new NullPtrNode(), (yyvsp[0].base_node)); }
 #line 3182 "c.tab.cpp"
     break;
 
-  case 264: /* jump_statement: CONTINUE ';'  */
-#line 552 "c.y"
-                       { (yyval.base_node) = new ContinueStatementNode(); }
+  case 260: /* iteration_statement: FOR '(' expression_statement expression_statement expression ')' statement  */
+#line 547 "c.y"
+                                                                                     { (yyval.base_node) = new ForStatementNode((yyvsp[-4].base_node), (yyvsp[-3].base_node), (yyvsp[-2].base_node), (yyvsp[0].base_node)); }
 #line 3188 "c.tab.cpp"
     break;
 
-  case 265: /* jump_statement: BREAK ';'  */
-#line 553 "c.y"
-                    { (yyval.base_node) = new BreakStatementNode(); }
+  case 261: /* iteration_statement: FOR '(' declaration expression_statement ')' statement  */
+#line 548 "c.y"
+                                                                 { (yyval.base_node) = new ForStatementNode((yyvsp[-3].base_node), (yyvsp[-2].base_node), new NullPtrNode(), (yyvsp[0].base_node)); }
 #line 3194 "c.tab.cpp"
     break;
 
-  case 266: /* jump_statement: RETURN ';'  */
-#line 554 "c.y"
-                     { (yyval.base_node) = new ReturnStatementNode(new NullPtrNode()); }
+  case 262: /* iteration_statement: FOR '(' declaration expression_statement expression ')' statement  */
+#line 549 "c.y"
+                                                                            { (yyval.base_node) = new ForStatementNode((yyvsp[-4].base_node), (yyvsp[-3].base_node), (yyvsp[-2].base_node), (yyvsp[0].base_node)); }
 #line 3200 "c.tab.cpp"
     break;
 
-  case 267: /* jump_statement: RETURN expression ';'  */
-#line 555 "c.y"
-                                { (yyval.base_node) = new ReturnStatementNode((yyvsp[-1].base_node)); }
+  case 263: /* jump_statement: GOTO IDENTIFIER ';'  */
+#line 553 "c.y"
+                              { (yyval.base_node) = new GotoStatementNode(new IdentifierNode((yyvsp[-1].str))); }
 #line 3206 "c.tab.cpp"
     break;
 
-  case 268: /* translation_unit: external_declaration  */
-#line 559 "c.y"
-                               {(yyval.base_node) = new TranslationUnitNode() ;root = (yyval.base_node); root->addChild((yyvsp[0].base_node));}
+  case 264: /* jump_statement: CONTINUE ';'  */
+#line 554 "c.y"
+                       { (yyval.base_node) = new ContinueStatementNode(); }
 #line 3212 "c.tab.cpp"
     break;
 
-  case 269: /* translation_unit: translation_unit external_declaration  */
-#line 560 "c.y"
-                                                {(yyval.base_node) = (yyvsp[-1].base_node); (yyvsp[-1].base_node)->addChild((yyvsp[0].base_node));}
+  case 265: /* jump_statement: BREAK ';'  */
+#line 555 "c.y"
+                    { (yyval.base_node) = new BreakStatementNode(); }
 #line 3218 "c.tab.cpp"
     break;
 
-  case 270: /* external_declaration: function_definition  */
-#line 564 "c.y"
-                              {(yyval.base_node) = (yyvsp[0].base_node);}
+  case 266: /* jump_statement: RETURN ';'  */
+#line 556 "c.y"
+                     { (yyval.base_node) = new ReturnStatementNode(new NullPtrNode()); }
 #line 3224 "c.tab.cpp"
     break;
 
-  case 271: /* external_declaration: declaration  */
-#line 565 "c.y"
-                      {(yyval.base_node) = (yyvsp[0].base_node);}
+  case 267: /* jump_statement: RETURN expression ';'  */
+#line 557 "c.y"
+                                { (yyval.base_node) = new ReturnStatementNode((yyvsp[-1].base_node)); }
 #line 3230 "c.tab.cpp"
     break;
 
-  case 272: /* function_definition: declaration_specifiers declarator declaration_list compound_statement  */
-#line 569 "c.y"
-                                                                                {(yyval.base_node) = new FunctionDefinitionNode((yyvsp[-3].base_node),(yyvsp[-2].base_node),(yyvsp[-1].base_node),(yyvsp[0].base_node)); }
+  case 268: /* translation_unit: external_declaration  */
+#line 561 "c.y"
+                               {(yyval.base_node) = new TranslationUnitNode() ;root = (yyval.base_node); root->addChild((yyvsp[0].base_node));}
 #line 3236 "c.tab.cpp"
     break;
 
-  case 273: /* function_definition: declaration_specifiers declarator compound_statement  */
-#line 570 "c.y"
-                                                               {(yyval.base_node) = new FunctionDefinitionNode((yyvsp[-2].base_node),(yyvsp[-1].base_node),new NullPtrNode(),(yyvsp[0].base_node)); }
+  case 269: /* translation_unit: translation_unit external_declaration  */
+#line 562 "c.y"
+                                                {(yyval.base_node) = (yyvsp[-1].base_node); (yyvsp[-1].base_node)->addChild((yyvsp[0].base_node));}
 #line 3242 "c.tab.cpp"
     break;
 
-  case 274: /* declaration_list: declaration  */
-#line 574 "c.y"
-                      {(yyval.base_node) = new DeclarationListNode(); (yyval.base_node)->addChild((yyvsp[0].base_node));}
+  case 270: /* external_declaration: function_definition  */
+#line 566 "c.y"
+                              {(yyval.base_node) = (yyvsp[0].base_node);}
 #line 3248 "c.tab.cpp"
     break;
 
-  case 275: /* declaration_list: declaration_list declaration  */
-#line 575 "c.y"
-                                       {(yyval.base_node) = (yyvsp[-1].base_node); (yyvsp[-1].base_node)->addChild((yyvsp[0].base_node));}
+  case 271: /* external_declaration: declaration  */
+#line 567 "c.y"
+                      {(yyval.base_node) = (yyvsp[0].base_node);}
 #line 3254 "c.tab.cpp"
     break;
 
+  case 272: /* function_definition: declaration_specifiers declarator declaration_list compound_statement  */
+#line 571 "c.y"
+                                                                                {(yyval.base_node) = new FunctionDefinitionNode((yyvsp[-3].base_node),(yyvsp[-2].base_node),(yyvsp[-1].base_node),(yyvsp[0].base_node)); }
+#line 3260 "c.tab.cpp"
+    break;
 
-#line 3258 "c.tab.cpp"
+  case 273: /* function_definition: declaration_specifiers declarator compound_statement  */
+#line 572 "c.y"
+                                                               {(yyval.base_node) = new FunctionDefinitionNode((yyvsp[-2].base_node),(yyvsp[-1].base_node),new NullPtrNode(),(yyvsp[0].base_node)); }
+#line 3266 "c.tab.cpp"
+    break;
+
+  case 274: /* declaration_list: declaration  */
+#line 576 "c.y"
+                      {(yyval.base_node) = new DeclarationListNode(); (yyval.base_node)->addChild((yyvsp[0].base_node));}
+#line 3272 "c.tab.cpp"
+    break;
+
+  case 275: /* declaration_list: declaration_list declaration  */
+#line 577 "c.y"
+                                       {(yyval.base_node) = (yyvsp[-1].base_node); (yyvsp[-1].base_node)->addChild((yyvsp[0].base_node));}
+#line 3278 "c.tab.cpp"
+    break;
+
+
+#line 3282 "c.tab.cpp"
 
       default: break;
     }
@@ -3447,7 +3471,7 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 578 "c.y"
+#line 580 "c.y"
 
 #include <stdio.h>
 

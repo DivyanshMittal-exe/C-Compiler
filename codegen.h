@@ -6,6 +6,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include <iostream>
+#include <llvm-14/llvm/IR/Function.h>
 #include <llvm-14/llvm/IR/Value.h>
 #include <map>
 #include <memory>
@@ -22,6 +23,8 @@ public:
   vector<map<string, llvm::Value *>> symbol_tables;
   vector<map<string, llvm::Value *>> func_args;
 
+  map<string, llvm::Function *> declared_functions;
+
   CodeGenerator() {
     unique_ptr<llvm::LLVMContext> global_context =
         make_unique<llvm::LLVMContext>();
@@ -30,6 +33,10 @@ public:
     global_module = make_unique<llvm::Module>("global_module", *global_context);
     contexts.push_back(std::move(global_context));
     builders.push_back(std::move(global_builder));
+  }
+
+  bool isFunctionDeclaredButNotDefined(string name) {
+    return declared_functions.find(name) != declared_functions.end();
   }
 
   bool isFunctionDefined(string name) {
