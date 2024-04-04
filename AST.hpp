@@ -9,6 +9,7 @@
 #include <llvm-14/llvm/IR/Function.h>
 #include <llvm-14/llvm/IR/IRBuilder.h>
 #include <llvm-14/llvm/IR/Instructions.h>
+#include <llvm-14/llvm/IR/LLVMContext.h>
 #include <llvm-14/llvm/IR/Type.h>
 #include <llvm-14/llvm/IR/Value.h>
 #include <stdexcept>
@@ -35,6 +36,8 @@ static map<string, Value *> current_symbol_table;
 static bool get_as_rvalue = false;
 
 static bool global_is_variadic = false;
+
+static bool am_i_initialising = false;
 
 class ASTNode {
 public:
@@ -354,8 +357,13 @@ public:
   llvm::Type *getValueType() {
     llvm::Type *val = getCurrType(specifier, codeGenerator.getContext());
 
-    cout << "For the specifer " << specifierEnumToString(specifier)
-         << " the type is " << val->getTypeID() << endl;
+    if (val) {
+      cout << "For the specifer " << specifierEnumToString(specifier)
+           << " the type is " << val->getTypeID() << endl;
+    } else {
+      cout << "Bruh the val is null for " << specifierEnumToString(specifier)
+           << endl;
+    }
 
     return val;
   }
@@ -778,6 +786,15 @@ public:
     declarator->modifyDeclarationType();
     llvm::Type *declaration_type_copy = declaration_type;
     declaration_type = old_type;
+    string name = declarator->get().s;
+
+    am_i_initialising = true;
+    declarator->codegen();
+    am_i_initialising = false;
+
+    if (codeGenerator.isFunctionDefined(declarator->get().s)) {
+      return nullptr;
+    }
 
     llvm::Value *val = nullptr;
     if (initializer->getNodeType() != NodeType::Unimplemented) {
@@ -785,6 +802,8 @@ public:
     } else {
       val = llvm::Constant::getNullValue(declaration_type_copy);
     }
+
+    cout << "Name " << declarator->get().s << endl;
 
     llvm::AllocaInst *alloca = curent_builder->CreateAlloca(
         declaration_type_copy, nullptr, declarator->get().s);
@@ -877,12 +896,14 @@ public:
     return result;
   }
 
-  void fixFunctionParams() {
-    if (pointer->getNodeType() == NodeType::Unimplemented) {
-      return;
-    }
+  void modifyDeclarationType() {
+
+    cout << "Modifying declaration type for pointer" << endl;
     declaration_type = llvm::PointerType::get(declaration_type, 0);
-    pointer->fixFunctionParams();
+
+    if (pointer->getNodeType() != NodeType::Unimplemented) {
+      pointer->modifyDeclarationType();
+    }
   }
 
 private:
@@ -946,6 +967,8 @@ public:
     llvm::Function *function_decl =
         llvm::Function::Create(function_type, llvm::Function::ExternalLinkage,
                                func_name, codeGenerator.global_module.get());
+
+    auto x = codeGenerator.global_module->getFunction(func_name);
 
     codeGenerator.declared_functions[func_name] = function_decl;
     return nullptr;
@@ -1049,6 +1072,10 @@ public:
   void modifyDeclarationType() {}
 
   Value *codegen() {
+
+    if (am_i_initialising) {
+      return nullptr;
+    }
 
     llvm::Value *val = current_symbol_table[name];
 
@@ -1967,6 +1994,7 @@ private:
   float value;
 };
 
+
 class StringNode : public ASTNode {
 public:
   StringNode(string value) : ASTNode(NodeType::String), value(value) {}
@@ -1977,7 +2005,24 @@ public:
     return result;
   }
 
-  Value *codegen() { return curent_builder->CreateGlobalStringPtr(value); }
+  Value *codegen() {
+
+
+
+    cout << "Hi, here to print" << value << endl;
+    
+
+
+    llvm::LLVMContext &context = codeGenerator.global_module->getContext();
+
+    llvm::Constant *strConstant =
+        llvm::ConstantDataArray::getString(context, value);
+    llvm::GlobalVariable *strVar = new llvm::GlobalVariable(
+        *codeGenerator.global_module, strConstant->getType(), true,
+        llvm::GlobalValue::ExternalLinkage, strConstant, "str");
+    return curent_builder->CreatePointerCast(strVar,
+                                             curent_builder->getInt8PtrTy());
+  }
 
 private:
   string value;

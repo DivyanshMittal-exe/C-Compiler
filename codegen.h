@@ -96,7 +96,6 @@ static llvm::Type *getCurrType(SpecifierEnum specifier,
 
   default:
     curr_type = nullptr;
-    std::cout << "Error: Unknown type specifier" << std::endl;
   }
 
   return curr_type;

@@ -7,7 +7,7 @@ int main() {
   int b;
   b = a;
   int c = 1, d = 2;
-
+  a = c + d;
   printf("hello, world\n");
   printf("a = %d\n", a);
   return 0;

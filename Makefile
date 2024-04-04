@@ -11,9 +11,9 @@ clean:
 	rm -f c.tab.cpp c.tab.hpp c.lex.cpp cc c.output
 
 run_llvm: clean cc
-	./cc examples/test_trivial.c --dump-ast --skip-semantics
+	./cc examples/test_trivial.c --skip-semantics
 	llc -filetype=obj a.ll -o a.o
-	clang a.o -o a.out
+	clang a.o -o a.out -pie
 	./a.out
 
 run: clean cc
