@@ -16,13 +16,16 @@ static void usage() {
   std::cout << "Additional arguments:" << std::endl;
   std::cout << "-o <filename>: Specify output file" << std::endl;
   std::cout << "--optimise: Enable optimization" << std::endl;
+
   std::cout << "--dump-ast: Dump abstract syntax tree" << std::endl;
+  std::cout << "--skip-semantics: Skip checking for semantics" << std::endl;
 }
 
 int main(int argc, char **argv) {
 
   bool unknownArgument = false;
   bool hasProgC = false;
+  bool skipSemantics = false;
 
   std::string out_filename = "a.ll";
   bool optimise = false;
@@ -40,6 +43,8 @@ int main(int argc, char **argv) {
       optimise = true;
     } else if (arg == "--dump-ast") { // Check for --dump-ast flag
       dump_ast = true;
+    } else if (arg == "--skip-semantics") {
+      skipSemantics = true;
     } else if (!hasProgC) { // Check for <prog.c>
       hasProgC = true;
       prog_filename = arg;
@@ -78,13 +83,17 @@ int main(int argc, char **argv) {
     std::cout << root->dump_ast() << std::endl;
   }
 
-  printf("Checking semantics\n");
-  bool scoping = root->check_semantics();
-  if (!scoping) {
-    printf("Scoping Failed\n");
-    exit(1);
-  }
+  if (skipSemantics) {
+    printf("Skipping semantics\n");
 
+  } else {
+    printf("Checking semantics\n");
+    bool scoping = root->check_semantics();
+    if (!scoping) {
+      printf("Scoping Failed\n");
+      exit(1);
+    }
+  }
   root->codegen();
   root->dump_llvm(out_filename);
   exit(0);

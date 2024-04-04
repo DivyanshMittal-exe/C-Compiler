@@ -34,6 +34,8 @@ static llvm::Type *func_ret_type = nullptr;
 
 static map<string, Value *> current_symbol_table;
 
+static bool get_as_rvalue = false;
+
 class ASTNode {
 public:
   ASTNode(NodeType type) : type(type) {}
@@ -49,6 +51,8 @@ public:
   }
 
   void addChild(ASTNode *child) { children.push_back(child); }
+
+  vector<ASTNode *> getChildren() { return children; }
 
   virtual bool check_semantics() {
 
@@ -222,6 +226,8 @@ public:
     return true;
   }
 
+  // Got rid of the functions map here, and used the module insteads
+
   Value *codegen() {
     declaration_type = nullptr;
     function_params.clear();
@@ -231,7 +237,7 @@ public:
     string func_name = declarator->get().s;
 
     if (codeGenerator.isFunctionDefined(func_name)) {
-      return codeGenerator.functions[func_name];
+      return codeGenerator.getFunction(func_name);
     }
 
     declarator->fixFunctionParams();
@@ -241,9 +247,6 @@ public:
     llvm::Function *function_decl =
         llvm::Function::Create(function_type, llvm::Function::ExternalLinkage,
                                func_name, codeGenerator.global_module.get());
-
-    // Store the function in the functions map
-    codeGenerator.functions[func_name] = function_decl;
 
     // Create a new basic block to start insertion into.
     llvm::BasicBlock *basic_block = llvm::BasicBlock::Create(
@@ -323,6 +326,10 @@ public:
 
   llvm::Type *getValueType() {
     llvm::Type *val = getCurrType(specifier, codeGenerator.getContext());
+
+    cout << "For the specifer " << specifierEnumToString(specifier)
+         << " the type is " << val->getTypeID() << endl;
+
     return val;
   }
 
@@ -650,7 +657,17 @@ public:
 
   Value *codegen() {
     if (expression->getNodeType() != NodeType::Unimplemented) {
-      return curent_builder->CreateRet(expression->codegen());
+
+      get_as_rvalue = true;
+      llvm::Value *val_to_ret =
+          curent_builder->CreateRet(expression->codegen());
+      get_as_rvalue = false;
+
+      cout << "Returning value from function" << endl;
+      cout << "Value returned is " << val_to_ret->getType()->getTypeID()
+           << endl;
+
+      return val_to_ret;
     }
     return curent_builder->CreateRetVoid();
   }
@@ -731,15 +748,17 @@ public:
 
   Value *codegen() {
 
+    llvm::Type *declaration_type_copy = declaration_type;
+
     llvm::Value *val = nullptr;
     if (initializer->getNodeType() != NodeType::Unimplemented) {
       val = initializer->codegen();
-    }
-    if (val == nullptr) {
+    } else {
       val = llvm::Constant::getNullValue(declaration_type);
     }
+
     llvm::AllocaInst *alloca = curent_builder->CreateAlloca(
-        declaration_type, nullptr, declarator->get().s);
+        declaration_type_copy, nullptr, declarator->get().s);
     curent_builder->CreateStore(val, alloca);
     current_symbol_table[declarator->get().s] = alloca;
     return alloca;
@@ -927,7 +946,21 @@ public:
 
   bool check_semantics() { return scoperStack.exists(name); }
 
-  Value *codegen() { return current_symbol_table[name]; }
+  Value *codegen() {
+
+    llvm::Value *val = current_symbol_table[name];
+
+    if (val == nullptr) {
+      throw std::runtime_error("Variable " + name + " has not been declared.");
+    }
+
+    if (!get_as_rvalue) {
+      return val;
+    }
+
+    llvm::Type *val_type = val->getType()->getPointerElementType();
+    return curent_builder->CreateLoad(val_type, val, name.c_str());
+  }
 
 private:
   string name;
@@ -968,10 +1001,12 @@ public:
     return true;
   }
   Value *codegen() {
+    llvm::Value *val = nullptr;
+
     for (auto child : children) {
-      child->codegen();
+      val = child->codegen();
     }
-    return nullptr;
+    return val;
   }
 };
 
@@ -999,8 +1034,10 @@ public:
 
   Value *codegen() override {
     // Generate LLVM IR for the right-hand side expression
-    Value *rhsValue = assignment_expression->codegen();
 
+    get_as_rvalue = true;
+    Value *rhsValue = assignment_expression->codegen();
+    get_as_rvalue = false;
     // Get the address of the left-hand side variable or expression
     Value *lhsAddr = unary_expression->codegen();
 
@@ -1121,6 +1158,33 @@ public:
   bool check_semantics() {
     return postfix_expression->check_semantics() &&
            argument_expression_list->check_semantics();
+  }
+
+  Value *codegen() {
+
+    string function_name = postfix_expression->get().s;
+    llvm::Function *function = codeGenerator.getFunction(function_name);
+
+    if (function == nullptr) {
+      throw std::runtime_error("Function " + function_name + " not found.");
+    }
+
+    vector<ASTNode *> args = argument_expression_list->getChildren();
+    get_as_rvalue = true;
+
+    /* if (args.size() != function->arg_size()) { */
+    /*   throw std::runtime_error("Function " + function_name + */
+    /*                            " called with wrong number of arguments."); */
+    /* } */
+
+    vector<Value *> arguments;
+    for (auto arg : args) {
+      arguments.push_back(arg->codegen());
+    }
+
+    get_as_rvalue = false;
+
+    return curent_builder->CreateCall(function, arguments);
   }
 
 private:

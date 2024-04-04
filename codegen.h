@@ -19,8 +19,6 @@ public:
 
   unique_ptr<llvm::Module> global_module;
 
-  map<string, llvm::Value *> functions;
-
   vector<map<string, llvm::Value *>> symbol_tables;
   vector<map<string, llvm::Value *>> func_args;
 
@@ -35,7 +33,11 @@ public:
   }
 
   bool isFunctionDefined(string name) {
-    return functions.find(name) != functions.end();
+    return global_module->getFunction(name) != nullptr;
+  }
+
+  llvm::Function *getFunction(string name) {
+    return global_module->getFunction(name);
   }
 
   llvm::LLVMContext &getContext() { return *contexts.back(); }
