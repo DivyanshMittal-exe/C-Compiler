@@ -93,10 +93,11 @@ static void assign_str(void);
 
 {L}{A}*					{ assign_str() ; return IDENTIFIER; }
 
+
 {HP}{H}+{IS}?				    { yylval.integer = atoi(yytext); return I_CONSTANT; }
 {NZ}{D}*{IS}?				    { yylval.integer = atoi(yytext); return I_CONSTANT; }
 "0"{O}*{IS}?				    { yylval.integer = atoi(yytext); return I_CONSTANT; }
-{CP}?"'"([^'\\\n]|{ES})+"'"		{ yylval.integer = atoi(yytext); return I_CONSTANT; }
+{CP}?"'"([^'\\\n]|{ES})+"'"		{ assign_str(); return STRING_LITERAL; }
 
 {D}+{E}{FS}?				    { yylval.real = std::stof(yytext); return F_CONSTANT; }
 {D}*"."{D}+{E}?{FS}?			{ yylval.real = std::stof(yytext); return F_CONSTANT; }

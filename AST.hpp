@@ -4,6 +4,7 @@
 #include "AST_enums.hpp"
 #include "codegen.h"
 #include "scoper.h"
+#include <cstdint>
 #include <iostream>
 #include <llvm-14/llvm/IR/BasicBlock.h>
 #include <llvm-14/llvm/IR/Function.h>
@@ -33,11 +34,14 @@ static int parameter_list_index = 0;
 
 static map<string, Value *> current_symbol_table;
 
-static bool get_as_rvalue = false;
+static bool get_as_lvalue = false;
 
 static bool global_is_variadic = false;
 
 static bool am_i_initialising = false;
+
+static llvm::BasicBlock *loop_block = nullptr;
+static llvm::BasicBlock *merge_block = nullptr;
 
 class ASTNode {
 public:
@@ -424,7 +428,7 @@ public:
     return dumpParameters(this, {constant_expression, statement}, depth, false);
   }
 
-private:
+public:
   ASTNode *constant_expression;
   ASTNode *statement;
 };
@@ -543,6 +547,68 @@ public:
     return true;
   }
 
+  Value *codegen() {
+    llvm::Value *conditionValue = expression->codegen();
+
+    llvm::Function *function = curent_builder->GetInsertBlock()->getParent();
+    llvm::BasicBlock *switchBlock = llvm::BasicBlock::Create(
+        codeGenerator.getContext(), "switch", function);
+    llvm::BasicBlock *defaultBlock =
+        llvm::BasicBlock::Create(codeGenerator.getContext(), "default");
+    llvm::BasicBlock *mergeBlock =
+        llvm::BasicBlock::Create(codeGenerator.getContext(), "switchcont");
+
+    curent_builder->CreateBr(switchBlock);
+    curent_builder->SetInsertPoint(switchBlock);
+
+    auto statements = statement->getChildren();
+
+    int numCases = statements.size();
+    ASTNode *defaultCase = nullptr;
+    for (auto statement : statements) {
+      if (statement->getNodeType() == NodeType::DefaultLabelStatement) {
+        defaultCase = statement;
+        numCases--;
+      }
+    }
+
+    llvm::SwitchInst *switchInst =
+        curent_builder->CreateSwitch(conditionValue, defaultBlock, numCases);
+
+    for (int i = 0; i < statements.size(); i++) {
+      if (statements[i]->getNodeType() == NodeType::DefaultLabelStatement) {
+        continue;
+      }
+      llvm::BasicBlock *caseBlock = llvm::BasicBlock::Create(
+          codeGenerator.getContext(), "case" + std::to_string(i), function);
+      curent_builder->SetInsertPoint(caseBlock);
+      statements[i]->codegen();
+      curent_builder->CreateBr(mergeBlock);
+
+      CaseLabelStatementNode *caseNode =
+          dynamic_cast<CaseLabelStatementNode *>(statements[i]);
+
+      llvm::ConstantInt *caseValue = llvm::dyn_cast<llvm::ConstantInt>(
+          caseNode->constant_expression->codegen());
+      switchInst->addCase(caseValue, caseBlock);
+    }
+
+    // Generate LLVM IR code for the default case, if present
+
+    if (defaultCase != nullptr) {
+      function->getBasicBlockList().push_back(defaultBlock);
+      curent_builder->SetInsertPoint(defaultBlock);
+      defaultCase->codegen();
+      curent_builder->CreateBr(mergeBlock);
+    }
+
+    // Add the merge block to the function
+    function->getBasicBlockList().push_back(mergeBlock);
+    curent_builder->SetInsertPoint(mergeBlock);
+
+    return nullptr;
+  }
+
 private:
   ASTNode *expression;
   ASTNode *statement;
@@ -570,6 +636,37 @@ public:
     return true;
   }
 
+  Value *codegen() {
+    llvm::Function *function = curent_builder->GetInsertBlock()->getParent();
+    llvm::BasicBlock *whileBlock =
+        llvm::BasicBlock::Create(codeGenerator.getContext(), "while", function);
+    llvm::BasicBlock *loopBlock =
+        llvm::BasicBlock::Create(codeGenerator.getContext(), "loop");
+    llvm::BasicBlock *mergeBlock =
+        llvm::BasicBlock::Create(codeGenerator.getContext(), "whilecont");
+
+    curent_builder->CreateBr(whileBlock);
+    curent_builder->SetInsertPoint(whileBlock);
+    llvm::Value *conditionValue = expression->codegen();
+    curent_builder->CreateCondBr(conditionValue, loopBlock, mergeBlock);
+    function->getBasicBlockList().push_back(loopBlock);
+
+    curent_builder->SetInsertPoint(loopBlock);
+
+    llvm::BasicBlock *old_loop_block = loop_block;
+    llvm::BasicBlock *old_merge_block = merge_block;
+    loop_block = loopBlock;
+    merge_block = mergeBlock;
+    statement->codegen();
+    loop_block = old_loop_block;
+    merge_block = old_merge_block;
+
+    curent_builder->CreateBr(whileBlock);
+    function->getBasicBlockList().push_back(mergeBlock);
+    curent_builder->SetInsertPoint(mergeBlock);
+    return nullptr;
+  }
+
 private:
   ASTNode *expression;
   ASTNode *statement;
@@ -595,6 +692,42 @@ public:
     }
     scoperStack.pop();
     return true;
+  }
+
+  Value *codegen() {
+    llvm::Function *function = curent_builder->GetInsertBlock()->getParent();
+    llvm::BasicBlock *doBlock =
+        llvm::BasicBlock::Create(codeGenerator.getContext(), "do", function);
+    llvm::BasicBlock *loopBlock =
+        llvm::BasicBlock::Create(codeGenerator.getContext(), "loop");
+    llvm::BasicBlock *mergeBlock =
+        llvm::BasicBlock::Create(codeGenerator.getContext(), "docont");
+
+    curent_builder->CreateBr(doBlock);
+    curent_builder->SetInsertPoint(doBlock);
+
+    llvm::BasicBlock *old_loop_block = loop_block;
+    llvm::BasicBlock *old_merge_block = merge_block;
+    loop_block = loopBlock;
+    merge_block = mergeBlock;
+    statement->codegen();
+    loop_block = old_loop_block;
+    merge_block = old_merge_block;
+
+    curent_builder->CreateBr(loopBlock);
+    function->getBasicBlockList().push_back(loopBlock);
+    curent_builder->SetInsertPoint(loopBlock);
+
+    llvm::Value *conditionValue = expression->codegen();
+
+    // Create the loop condition branch instruction
+    curent_builder->CreateCondBr(conditionValue, loopBlock, mergeBlock);
+
+    // Add merge block to the function
+    function->getBasicBlockList().push_back(mergeBlock);
+    curent_builder->SetInsertPoint(mergeBlock);
+
+    return nullptr;
   }
 
 private:
@@ -641,6 +774,72 @@ public:
     return true;
   }
 
+  Value *codegen() {
+    llvm::Function *function = curent_builder->GetInsertBlock()->getParent();
+
+    // Create basic blocks for the for loop
+    llvm::BasicBlock *initBlock = llvm::BasicBlock::Create(
+        codeGenerator.getContext(), "for.init", function);
+    llvm::BasicBlock *loopConditionBlock = llvm::BasicBlock::Create(
+        codeGenerator.getContext(), "for.cond", function);
+    llvm::BasicBlock *loopBodyBlock = llvm::BasicBlock::Create(
+        codeGenerator.getContext(), "for.body", function);
+    llvm::BasicBlock *loopIterBlock = llvm::BasicBlock::Create(
+        codeGenerator.getContext(), "for.iter", function);
+    llvm::BasicBlock *mergeBlock = llvm::BasicBlock::Create(
+        codeGenerator.getContext(), "for.merge", function);
+
+    // Jump to the initialization block
+    curent_builder->CreateBr(initBlock);
+    curent_builder->SetInsertPoint(initBlock);
+
+    // Generate LLVM IR code for the initialization expression
+    expression1->codegen();
+
+    // Jump to the loop condition block
+    curent_builder->CreateBr(loopConditionBlock);
+    curent_builder->SetInsertPoint(loopConditionBlock);
+
+    // Generate LLVM IR code for the loop condition check
+    llvm::Value *conditionValue = expression2->codegen();
+
+    // Create the loop condition branch instruction
+    curent_builder->CreateCondBr(conditionValue, loopBodyBlock, mergeBlock);
+
+    // Set the insert point to the loop body block
+    function->getBasicBlockList().push_back(loopBodyBlock);
+    curent_builder->SetInsertPoint(loopBodyBlock);
+
+    // Generate LLVM IR code for the loop body
+
+    llvm::BasicBlock *old_loop_block = loop_block;
+    llvm::BasicBlock *old_merge_block = merge_block;
+    loop_block = loopConditionBlock;
+    merge_block = mergeBlock;
+    statement->codegen();
+    loop_block = old_loop_block;
+    merge_block = old_merge_block;
+
+    // Jump to the loop iteration block
+    curent_builder->CreateBr(loopIterBlock);
+
+    // Set the insert point to the loop iteration block
+    function->getBasicBlockList().push_back(loopIterBlock);
+    curent_builder->SetInsertPoint(loopIterBlock);
+
+    // Generate LLVM IR code for the iteration expression
+    expression3->codegen();
+
+    // Branch back to the loop condition block
+    curent_builder->CreateBr(loopConditionBlock);
+
+    // Add the merge block to the function
+    function->getBasicBlockList().push_back(mergeBlock);
+    curent_builder->SetInsertPoint(mergeBlock);
+
+    return nullptr;
+  }
+
 private:
   ASTNode *expression1;
   ASTNode *expression2;
@@ -668,6 +867,16 @@ public:
   string dump_ast(int depth = 0) const {
     return dumpParameters(this, {}, depth, false);
   }
+
+  Value *codegen() {
+
+    if (loop_block == nullptr) {
+      throw std::runtime_error("Continue statement outside of loop");
+    }
+
+    curent_builder->CreateBr(loop_block);
+    return nullptr;
+  }
 };
 
 class BreakStatementNode : public ASTNode {
@@ -676,6 +885,15 @@ public:
 
   string dump_ast(int depth = 0) const {
     return dumpParameters(this, {}, depth, false);
+  }
+
+  Value *codegen() {
+    if (loop_block == nullptr) {
+      throw std::runtime_error("Break statement outside of loop");
+    }
+
+    curent_builder->CreateBr(merge_block);
+    return nullptr;
   }
 };
 
@@ -693,10 +911,8 @@ public:
   Value *codegen() {
     if (expression->getNodeType() != NodeType::Unimplemented) {
 
-      get_as_rvalue = true;
       llvm::Value *val_to_ret =
           curent_builder->CreateRet(expression->codegen());
-      get_as_rvalue = false;
 
       cout << "Returning value from function" << endl;
       cout << "Value returned is " << val_to_ret->getType()->getTypeID()
@@ -878,6 +1094,14 @@ public:
     direct_declarator->buildFunctionParams(function_decl);
   }
 
+  Value *codegen() {
+    auto old_type = declaration_type;
+    pointer->modifyDeclarationType();
+    auto val_to_ret = direct_declarator->codegen();
+    declaration_type = old_type;
+    return val_to_ret;
+  }
+
 private:
   ASTNode *pointer;
   ASTNode *direct_declarator;
@@ -908,6 +1132,42 @@ public:
 
 private:
   ASTNode *pointer;
+};
+
+class ArrayDeclaratorNode : public ASTNode {
+public:
+  ArrayDeclaratorNode(ASTNode *direct_declarator,
+                      ASTNode *assignment_expression)
+      : ASTNode(NodeType::ArrayDeclarator),
+        direct_declarator(direct_declarator),
+        assignment_expression(assignment_expression) {}
+  string dump_ast(int depth = 0) const {
+    return dumpParameters(this, {direct_declarator, assignment_expression},
+                          depth, false);
+  }
+
+  Value *codegen() {
+    Value *array_size = assignment_expression->codegen();
+    if (array_size->getType()->getTypeID() != llvm::Type::IntegerTyID) {
+      array_size = curent_builder->CreateIntCast(
+          array_size, llvm::Type::getInt32Ty(codeGenerator.getContext()), true);
+    }
+    llvm::Type *element_type = declaration_type;
+
+    llvm::ConstantInt *arraySizeInt =
+        llvm::dyn_cast<llvm::ConstantInt>(array_size);
+    uint64_t array_size_val = arraySizeInt->getZExtValue();
+
+    llvm::Type *array_type = llvm::ArrayType::get(element_type, array_size_val);
+    llvm::AllocaInst *alloca = curent_builder->CreateAlloca(
+        array_type, nullptr, direct_declarator->get().s);
+    current_symbol_table[direct_declarator->get().s] = alloca;
+    return nullptr;
+  }
+
+private:
+  ASTNode *direct_declarator;
+  ASTNode *assignment_expression;
 };
 
 class FunctionDeclarationNode : public ASTNode {
@@ -1083,7 +1343,7 @@ public:
       throw std::runtime_error("Variable " + name + " has not been declared.");
     }
 
-    if (!get_as_rvalue) {
+    if (get_as_lvalue) {
       return val;
     }
 
@@ -1164,11 +1424,12 @@ public:
   Value *codegen() override {
     // Generate LLVM IR for the right-hand side expression
 
-    get_as_rvalue = true;
     Value *rhsValue = assignment_expression->codegen();
-    get_as_rvalue = false;
     // Get the address of the left-hand side variable or expression
+
+    get_as_lvalue = true;
     Value *lhsAddr = unary_expression->codegen();
+    get_as_lvalue = false;
 
     // Perform the assignment based on the operator
     switch (assOp) {
@@ -1267,6 +1528,36 @@ public:
            expression->check_semantics();
   }
 
+  Value *codegen() {
+
+    cout << "Array access node" << endl;
+
+    Value *postFixValue = postfix_expression->codegen();
+    Value *indexValue = expression->codegen();
+
+    if (postFixValue->getType()->getTypeID() != llvm::Type::PointerTyID) {
+      throw std::runtime_error("Array access on non-pointer type");
+    }
+
+    llvm::Type *element_type = postFixValue->getType()->getPointerElementType();
+    llvm::Value *val_to_ret =
+        curent_builder->CreateGEP(element_type, postFixValue, indexValue);
+
+    /* llvm::Value *zero = llvm::ConstantInt::get( */
+    /*     llvm::Type::getInt32Ty(codeGenerator.getContext()), 0); */
+    /* llvm::Value *indices[] = {zero, indexValue}; */
+    /**/
+    /* llvm::Value *val_to_ret = */
+    /* curent_builder->CreateGEP(element_type, postFixValue, indices); */
+    return curent_builder->CreateLoad(element_type, val_to_ret);
+
+    if (get_as_lvalue) {
+      return val_to_ret;
+    }
+
+    return curent_builder->CreateLoad(element_type, val_to_ret);
+  }
+
 private:
   ASTNode *postfix_expression;
   ASTNode *expression;
@@ -1299,7 +1590,6 @@ public:
     }
 
     vector<ASTNode *> args = argument_expression_list->getChildren();
-    get_as_rvalue = true;
 
     /* if (args.size() != function->arg_size()) { */
     /*   throw std::runtime_error("Function " + function_name + */
@@ -1310,9 +1600,6 @@ public:
     for (auto arg : args) {
       arguments.push_back(arg->codegen());
     }
-
-    get_as_rvalue = false;
-
     return curent_builder->CreateCall(function, arguments);
   }
 
@@ -1994,7 +2281,6 @@ private:
   float value;
 };
 
-
 class StringNode : public ASTNode {
 public:
   StringNode(string value) : ASTNode(NodeType::String), value(value) {}
@@ -2007,11 +2293,19 @@ public:
 
   Value *codegen() {
 
+    if (value[0] == '\'') {
+      char charValue = value[1]; // Assuming the character is the second
+                                 // character after the single quote
+                                 //
+      cout << "Hi, here to print " << charValue << endl;
 
+      return llvm::ConstantInt::get(codeGenerator.getContext(),
+                                    llvm::APInt(8, charValue));
+    }
 
-    cout << "Hi, here to print" << value << endl;
-    
+    value = convertRawString(value);
 
+    cout << "Hi, here to print " << value << endl;
 
     llvm::LLVMContext &context = codeGenerator.global_module->getContext();
 

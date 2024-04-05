@@ -32,6 +32,7 @@ enum class NodeType {
   InitDeclartorList,
   Declarator,
   Pointer,
+  ArrayDeclarator,
   FunctionDeclator,
   Identifier,
   IdentifierList,
@@ -300,6 +301,8 @@ static std::string nodeTypeToString(NodeType type) {
     return "Declarator";
   case NodeType::Pointer:
     return "Pointer";
+  case NodeType::ArrayDeclarator:
+    return "ArrayDeclarator";
   case NodeType::FunctionDeclator:
     return "FunctionDeclator";
   case NodeType::Identifier:
@@ -406,6 +409,92 @@ static std::string formatSpacing(int depth) {
   }
   // Reset color to default
   result += "\033[0m";
+  return result;
+}
+
+static std::string convertRawString(const std::string &raw) {
+  std::string result;
+  bool escape = false;
+
+  for (size_t i = 1; i < raw.size() - 1; ++i) {
+    char c = raw[i];
+    if (escape) {
+      switch (c) {
+      case '\\':
+        result += '\\';
+        break;
+      case '\'':
+        result += '\'';
+        break;
+      case '\"':
+        result += '\"';
+        break;
+      case 'n':
+        result += '\n';
+        break;
+      case 'r':
+        result += '\r';
+        break;
+      case 't':
+        result += '\t';
+        break;
+      case 'b':
+        result += '\b';
+        break;
+      case 'f':
+        result += '\f';
+        break;
+      case 'v':
+        result += '\v';
+        break;
+      case '0':
+        result += '\0';
+        break;
+      case 'a':
+        result += '\a';
+        break;
+      case '?':
+        result += '\?';
+        break;
+      case 'x': {
+        // Hexadecimal representation
+        std::string hex;
+        while (isxdigit(raw[i + 1])) {
+          hex += raw[++i];
+        }
+        result += static_cast<char>(std::stoi(hex, nullptr, 16));
+        break;
+      }
+      case 'u': {
+        // Unicode representation (exactly 4 hexadecimal digits)
+        std::string hex;
+        for (int j = 0; j < 4 && isxdigit(raw[i + 1]); ++j) {
+          hex += raw[++i];
+        }
+        result += static_cast<char>(std::stoi(hex, nullptr, 16));
+        break;
+      }
+      case 'U': {
+        // Unicode representation (exactly 8 hexadecimal digits)
+        std::string hex;
+        for (int j = 0; j < 8 && isxdigit(raw[i + 1]); ++j) {
+          hex += raw[++i];
+        }
+        result += static_cast<char>(std::stoi(hex, nullptr, 16));
+        break;
+      }
+      default:
+        result += c;
+        break;
+      }
+      escape = false;
+    } else if (c == '\\') {
+      escape = true;
+    } else {
+      result += c;
+    }
+  }
+
   return result;
 }
 

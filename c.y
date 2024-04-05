@@ -236,7 +236,7 @@ expression
 	;
 
 constant_expression
-	: conditional_expression 	/* with constraints */
+	: conditional_expression {$$ = $1;} /* with constraints */
 	;
 
 declaration
@@ -393,7 +393,7 @@ direct_declarator
 	| direct_declarator '[' type_qualifier_list STATIC assignment_expression ']' {$$ = new NullPtrNode();}
 	| direct_declarator '[' type_qualifier_list assignment_expression ']' {$$ = new NullPtrNode();}
 	| direct_declarator '[' type_qualifier_list ']' {$$ = new NullPtrNode();}
-	| direct_declarator '[' assignment_expression ']' {$$ = new NullPtrNode();}
+	| direct_declarator '[' assignment_expression ']' {$$ = new ArrayDeclaratorNode($1, $3);}
 	| direct_declarator '(' parameter_type_list ')' {$$ = new FunctionDeclarationNode($1, $3 ) ;}
 	| direct_declarator '(' ')' {$$ = new FunctionDeclarationNode($1, new NullPtrNode()) ;}
 	| direct_declarator '(' identifier_list ')'  {$$ = new NullPtrNode();}
