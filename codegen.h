@@ -10,8 +10,48 @@
 #include <llvm-14/llvm/IR/Value.h>
 #include <map>
 #include <memory>
+#include <stdexcept>
 #include <string>
+#include <vector>
 using namespace std;
+
+class m_Context {
+public:
+  bool is_global;
+  map<string, llvm::Value *> variables;
+  map<string, llvm::Value *> carry_over_variables;
+
+  m_Context() { is_global = false; }
+  m_Context(const m_Context &other) {
+    this->variables = other.carry_over_variables;
+    is_global = false;
+  }
+  m_Context(bool is_global) { this->is_global = is_global; }
+
+  // Overload the [] operator to access the variables map
+  llvm::Value *&operator[](string key) {
+
+    if (!is_global && variables.find(key) != variables.end()) {
+      std::runtime_error("Variable " + key + " has been previously defined");
+    }
+    return variables[key];
+  }
+  llvm::Value *operator[](string key) const {
+    if (variables.find(key) == variables.end()) {
+      std::runtime_error("Variable " + key + " has not been defined");
+    }
+    return variables.at(key);
+  }
+
+  void add_to_carryover(string key, llvm::Value *value) {
+    if (carry_over_variables.find(key) != carry_over_variables.end()) {
+      std::runtime_error(
+          "Variable " + key +
+          " has been previously defined in the function definition");
+    }
+    carry_over_variables[key] = value;
+  }
+};
 
 class CodeGenerator {
 public:
@@ -21,8 +61,7 @@ public:
 
   unique_ptr<llvm::Module> global_module;
 
-  vector<map<string, llvm::Value *>> symbol_tables;
-  vector<map<string, llvm::Value *>> func_args;
+  vector<unique_ptr<m_Context>> symbol_tables;
 
   map<string, llvm::Function *> declared_functions;
 
@@ -32,6 +71,7 @@ public:
     builder = make_unique<llvm::IRBuilder<>>(*global_context);
     global_module = make_unique<llvm::Module>("global_module", *global_context);
     contexts.push_back(std::move(global_context));
+    symbol_tables.push_back(make_unique<m_Context>(m_Context(true)));
   }
 
   llvm::IRBuilder<> &getBuilder() { return *builder; }
@@ -50,19 +90,30 @@ public:
 
   llvm::LLVMContext &getContext() { return *contexts.back(); }
 
-  void push_func_args(map<string, llvm::Value *> symbol_table) {
-    func_args.push_back(symbol_table);
+  void pushContext() {
+    m_Context &current_symbol_table = *symbol_tables.back();
+    unique_ptr<m_Context> new_symbol_table =
+        make_unique<m_Context>(current_symbol_table);
+    symbol_tables.push_back(std::move(new_symbol_table));
   }
 
-  void pop_func_args() { func_args.pop_back(); }
+  void popContext() { symbol_tables.pop_back(); }
 
-  void push_symbol_table() {
+  m_Context &getsymbolTable() { return *symbol_tables.back(); }
 
-    map<string, llvm::Value *> new_table;
-    symbol_tables.push_back(new_table);
+  llvm::Value *findSymbol(string name) {
+
+    for (auto it = symbol_tables.rbegin(); it != symbol_tables.rend(); ++it) {
+      auto &x = *it; // Dereference the reverse iterator to get the element
+
+      // Check if the variable exists in the current symbol_table
+      if (x->variables.find(name) != x->variables.end()) {
+        return x->variables[name]; // Return the value if found
+      }
+    }
+
+    throw std::runtime_error("Variable " + name + " not found");
   }
-
-  void pop_symbol_table() { symbol_tables.pop_back(); }
 };
 
 static llvm::Type *getCurrType(SpecifierEnum specifier,

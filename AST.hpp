@@ -30,8 +30,6 @@ static vector<llvm::Type *> function_params;
 
 static int parameter_list_index = 0;
 
-static map<string, Value *> current_symbol_table;
-
 static bool get_as_lvalue = false;
 
 static bool global_is_variadic = false;
@@ -247,8 +245,6 @@ public:
   Value *codegen() {
     declaration_type = nullptr;
     function_params.clear();
-    current_symbol_table.clear();
-
     global_is_variadic = false;
 
     string func_name = declarator->get().s;
@@ -286,15 +282,13 @@ public:
 
     codeGenerator.getBuilder().SetInsertPoint(basic_block);
 
-    declarator->buildFunctionParams(function_decl);
+    codeGenerator.pushContext();
 
-    codeGenerator.push_symbol_table();
-    codeGenerator.push_func_args(current_symbol_table);
+    declarator->buildFunctionParams(function_decl);
 
     compound_statement->codegen();
 
-    codeGenerator.pop_func_args();
-    codeGenerator.pop_symbol_table();
+    codeGenerator.popContext();
 
     codeGenerator.getBuilder().CreateRet(
         llvm::Constant::getNullValue(func_ret_type));
@@ -391,9 +385,11 @@ public:
   }
 
   Value *codegen() {
+    codeGenerator.pushContext();
     for (auto child : children) {
       child->codegen();
     }
+    codeGenerator.popContext();
     return nullptr;
   }
 };
@@ -494,17 +490,19 @@ public:
     codeGenerator.getBuilder().CreateCondBr(condition, then_block, else_block);
 
     codeGenerator.getBuilder().SetInsertPoint(then_block);
-    codeGenerator.push_symbol_table();
+
+    codeGenerator.pushContext();
     statement->codegen();
-    codeGenerator.pop_symbol_table();
+    codeGenerator.popContext();
+
     codeGenerator.getBuilder().CreateBr(merge_block);
 
     function->getBasicBlockList().push_back(else_block);
     codeGenerator.getBuilder().SetInsertPoint(else_block);
     if (else_statement->getNodeType() != NodeType::Unimplemented) {
-      codeGenerator.push_symbol_table();
+      codeGenerator.pushContext();
       else_statement->codegen();
-      codeGenerator.pop_symbol_table();
+      codeGenerator.popContext();
     }
     codeGenerator.getBuilder().CreateBr(merge_block);
 
@@ -558,6 +556,7 @@ public:
     codeGenerator.getBuilder().CreateBr(switchBlock);
     codeGenerator.getBuilder().SetInsertPoint(switchBlock);
 
+    codeGenerator.pushContext();
     auto statements = statement->getChildren();
 
     int numCases = statements.size();
@@ -598,6 +597,8 @@ public:
       defaultCase->codegen();
       codeGenerator.getBuilder().CreateBr(mergeBlock);
     }
+
+    codeGenerator.popContext();
 
     // Add the merge block to the function
     function->getBasicBlockList().push_back(mergeBlock);
@@ -656,7 +657,11 @@ public:
     llvm::BasicBlock *old_merge_block = merge_block;
     loop_block = loopBlock;
     merge_block = mergeBlock;
+
+    codeGenerator.pushContext();
     statement->codegen();
+    codeGenerator.popContext();
+
     loop_block = old_loop_block;
     merge_block = old_merge_block;
 
@@ -710,7 +715,11 @@ public:
     llvm::BasicBlock *old_merge_block = merge_block;
     loop_block = loopBlock;
     merge_block = mergeBlock;
+
+    codeGenerator.pushContext();
     statement->codegen();
+    codeGenerator.popContext();
+
     loop_block = old_loop_block;
     merge_block = old_merge_block;
 
@@ -795,8 +804,10 @@ public:
     codeGenerator.getBuilder().CreateBr(initBlock);
     codeGenerator.getBuilder().SetInsertPoint(initBlock);
 
+    codeGenerator.pushContext();
     // Generate LLVM IR code for the initialization expression
     expression1->codegen();
+    codeGenerator.pushContext();
 
     // Jump to the loop condition block
     codeGenerator.getBuilder().CreateBr(loopConditionBlock);
@@ -839,6 +850,9 @@ public:
     // Add the merge block to the function
     function->getBasicBlockList().push_back(mergeBlock);
     codeGenerator.getBuilder().SetInsertPoint(mergeBlock);
+
+    codeGenerator.popContext();
+    codeGenerator.popContext();
 
     return nullptr;
   }
@@ -1027,7 +1041,7 @@ public:
     llvm::AllocaInst *alloca = codeGenerator.getBuilder().CreateAlloca(
         declaration_type_copy, nullptr, declarator->get().s);
     codeGenerator.getBuilder().CreateStore(val, alloca);
-    current_symbol_table[declarator->get().s] = alloca;
+    codeGenerator.getsymbolTable()[declarator->get().s] = alloca;
     return alloca;
   }
 
@@ -1164,7 +1178,7 @@ public:
     llvm::Type *array_type = llvm::ArrayType::get(element_type, array_size_val);
     llvm::AllocaInst *alloca = codeGenerator.getBuilder().CreateAlloca(
         array_type, nullptr, direct_declarator->get().s);
-    current_symbol_table[direct_declarator->get().s] = alloca;
+    codeGenerator.getsymbolTable()[direct_declarator->get().s] = alloca;
     return nullptr;
   }
 
@@ -1309,7 +1323,7 @@ public:
     codeGenerator.getBuilder().CreateStore(
         function_decl->arg_begin() + parameter_list_index, p);
 
-    current_symbol_table[name] = p;
+    codeGenerator.getsymbolTable().add_to_carryover(name, p);
   }
 
 private:
@@ -1341,7 +1355,7 @@ public:
       return nullptr;
     }
 
-    llvm::Value *val = current_symbol_table[name];
+    llvm::Value *val = codeGenerator.findSymbol(name);
 
     if (val == nullptr) {
       throw std::runtime_error("Variable " + name + " has not been declared.");
