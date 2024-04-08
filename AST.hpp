@@ -28,8 +28,6 @@ static CodeGenerator codeGenerator;
 static llvm::Type *declaration_type = nullptr;
 static vector<llvm::Type *> function_params;
 
-static llvm::IRBuilder<> *curent_builder = nullptr;
-
 static int parameter_list_index = 0;
 
 static map<string, Value *> current_symbol_table;
@@ -286,7 +284,7 @@ public:
     llvm::BasicBlock *basic_block = llvm::BasicBlock::Create(
         codeGenerator.getContext(), "entry", function_decl);
 
-    curent_builder = new llvm::IRBuilder<>(basic_block);
+    codeGenerator.getBuilder().SetInsertPoint(basic_block);
 
     declarator->buildFunctionParams(function_decl);
 
@@ -295,14 +293,11 @@ public:
 
     compound_statement->codegen();
 
-    if (func_ret_type->isVoidTy()) {
-      curent_builder->CreateRetVoid();
-    }
-
     codeGenerator.pop_func_args();
     codeGenerator.pop_symbol_table();
 
-    curent_builder->CreateRet(llvm::Constant::getNullValue(func_ret_type));
+    codeGenerator.getBuilder().CreateRet(
+        llvm::Constant::getNullValue(func_ret_type));
 
     return nullptr;
   }
@@ -479,13 +474,14 @@ public:
 
   Value *codegen() {
     llvm::Value *conditionValue = expression->codegen();
-    llvm::Value *condition = curent_builder->CreateICmpNE(
+    llvm::Value *condition = codeGenerator.getBuilder().CreateICmpNE(
         conditionValue,
         llvm::ConstantInt::get(
             llvm::Type::getInt1Ty(codeGenerator.getContext()), 0, true),
         "ifcond");
 
-    llvm::BasicBlock *current_block = curent_builder->GetInsertBlock();
+    llvm::BasicBlock *current_block =
+        codeGenerator.getBuilder().GetInsertBlock();
     llvm::Function *function = current_block->getParent();
 
     llvm::BasicBlock *then_block =
@@ -495,25 +491,25 @@ public:
     llvm::BasicBlock *merge_block =
         llvm::BasicBlock::Create(codeGenerator.getContext(), "ifcont");
 
-    curent_builder->CreateCondBr(condition, then_block, else_block);
+    codeGenerator.getBuilder().CreateCondBr(condition, then_block, else_block);
 
-    curent_builder->SetInsertPoint(then_block);
+    codeGenerator.getBuilder().SetInsertPoint(then_block);
     codeGenerator.push_symbol_table();
     statement->codegen();
     codeGenerator.pop_symbol_table();
-    curent_builder->CreateBr(merge_block);
+    codeGenerator.getBuilder().CreateBr(merge_block);
 
     function->getBasicBlockList().push_back(else_block);
-    curent_builder->SetInsertPoint(else_block);
+    codeGenerator.getBuilder().SetInsertPoint(else_block);
     if (else_statement->getNodeType() != NodeType::Unimplemented) {
       codeGenerator.push_symbol_table();
       else_statement->codegen();
       codeGenerator.pop_symbol_table();
     }
-    curent_builder->CreateBr(merge_block);
+    codeGenerator.getBuilder().CreateBr(merge_block);
 
     function->getBasicBlockList().push_back(merge_block);
-    curent_builder->SetInsertPoint(merge_block);
+    codeGenerator.getBuilder().SetInsertPoint(merge_block);
 
     return nullptr;
   }
@@ -550,7 +546,8 @@ public:
   Value *codegen() {
     llvm::Value *conditionValue = expression->codegen();
 
-    llvm::Function *function = curent_builder->GetInsertBlock()->getParent();
+    llvm::Function *function =
+        codeGenerator.getBuilder().GetInsertBlock()->getParent();
     llvm::BasicBlock *switchBlock = llvm::BasicBlock::Create(
         codeGenerator.getContext(), "switch", function);
     llvm::BasicBlock *defaultBlock =
@@ -558,8 +555,8 @@ public:
     llvm::BasicBlock *mergeBlock =
         llvm::BasicBlock::Create(codeGenerator.getContext(), "switchcont");
 
-    curent_builder->CreateBr(switchBlock);
-    curent_builder->SetInsertPoint(switchBlock);
+    codeGenerator.getBuilder().CreateBr(switchBlock);
+    codeGenerator.getBuilder().SetInsertPoint(switchBlock);
 
     auto statements = statement->getChildren();
 
@@ -572,8 +569,8 @@ public:
       }
     }
 
-    llvm::SwitchInst *switchInst =
-        curent_builder->CreateSwitch(conditionValue, defaultBlock, numCases);
+    llvm::SwitchInst *switchInst = codeGenerator.getBuilder().CreateSwitch(
+        conditionValue, defaultBlock, numCases);
 
     for (int i = 0; i < statements.size(); i++) {
       if (statements[i]->getNodeType() == NodeType::DefaultLabelStatement) {
@@ -581,9 +578,9 @@ public:
       }
       llvm::BasicBlock *caseBlock = llvm::BasicBlock::Create(
           codeGenerator.getContext(), "case" + std::to_string(i), function);
-      curent_builder->SetInsertPoint(caseBlock);
+      codeGenerator.getBuilder().SetInsertPoint(caseBlock);
       statements[i]->codegen();
-      curent_builder->CreateBr(mergeBlock);
+      codeGenerator.getBuilder().CreateBr(mergeBlock);
 
       CaseLabelStatementNode *caseNode =
           dynamic_cast<CaseLabelStatementNode *>(statements[i]);
@@ -597,14 +594,14 @@ public:
 
     if (defaultCase != nullptr) {
       function->getBasicBlockList().push_back(defaultBlock);
-      curent_builder->SetInsertPoint(defaultBlock);
+      codeGenerator.getBuilder().SetInsertPoint(defaultBlock);
       defaultCase->codegen();
-      curent_builder->CreateBr(mergeBlock);
+      codeGenerator.getBuilder().CreateBr(mergeBlock);
     }
 
     // Add the merge block to the function
     function->getBasicBlockList().push_back(mergeBlock);
-    curent_builder->SetInsertPoint(mergeBlock);
+    codeGenerator.getBuilder().SetInsertPoint(mergeBlock);
 
     return nullptr;
   }
@@ -637,7 +634,8 @@ public:
   }
 
   Value *codegen() {
-    llvm::Function *function = curent_builder->GetInsertBlock()->getParent();
+    llvm::Function *function =
+        codeGenerator.getBuilder().GetInsertBlock()->getParent();
     llvm::BasicBlock *whileBlock =
         llvm::BasicBlock::Create(codeGenerator.getContext(), "while", function);
     llvm::BasicBlock *loopBlock =
@@ -645,13 +643,14 @@ public:
     llvm::BasicBlock *mergeBlock =
         llvm::BasicBlock::Create(codeGenerator.getContext(), "whilecont");
 
-    curent_builder->CreateBr(whileBlock);
-    curent_builder->SetInsertPoint(whileBlock);
+    codeGenerator.getBuilder().CreateBr(whileBlock);
+    codeGenerator.getBuilder().SetInsertPoint(whileBlock);
     llvm::Value *conditionValue = expression->codegen();
-    curent_builder->CreateCondBr(conditionValue, loopBlock, mergeBlock);
+    codeGenerator.getBuilder().CreateCondBr(conditionValue, loopBlock,
+                                            mergeBlock);
     function->getBasicBlockList().push_back(loopBlock);
 
-    curent_builder->SetInsertPoint(loopBlock);
+    codeGenerator.getBuilder().SetInsertPoint(loopBlock);
 
     llvm::BasicBlock *old_loop_block = loop_block;
     llvm::BasicBlock *old_merge_block = merge_block;
@@ -661,9 +660,9 @@ public:
     loop_block = old_loop_block;
     merge_block = old_merge_block;
 
-    curent_builder->CreateBr(whileBlock);
+    codeGenerator.getBuilder().CreateBr(whileBlock);
     function->getBasicBlockList().push_back(mergeBlock);
-    curent_builder->SetInsertPoint(mergeBlock);
+    codeGenerator.getBuilder().SetInsertPoint(mergeBlock);
     return nullptr;
   }
 
@@ -695,7 +694,8 @@ public:
   }
 
   Value *codegen() {
-    llvm::Function *function = curent_builder->GetInsertBlock()->getParent();
+    llvm::Function *function =
+        codeGenerator.getBuilder().GetInsertBlock()->getParent();
     llvm::BasicBlock *doBlock =
         llvm::BasicBlock::Create(codeGenerator.getContext(), "do", function);
     llvm::BasicBlock *loopBlock =
@@ -703,8 +703,8 @@ public:
     llvm::BasicBlock *mergeBlock =
         llvm::BasicBlock::Create(codeGenerator.getContext(), "docont");
 
-    curent_builder->CreateBr(doBlock);
-    curent_builder->SetInsertPoint(doBlock);
+    codeGenerator.getBuilder().CreateBr(doBlock);
+    codeGenerator.getBuilder().SetInsertPoint(doBlock);
 
     llvm::BasicBlock *old_loop_block = loop_block;
     llvm::BasicBlock *old_merge_block = merge_block;
@@ -714,18 +714,19 @@ public:
     loop_block = old_loop_block;
     merge_block = old_merge_block;
 
-    curent_builder->CreateBr(loopBlock);
+    codeGenerator.getBuilder().CreateBr(loopBlock);
     function->getBasicBlockList().push_back(loopBlock);
-    curent_builder->SetInsertPoint(loopBlock);
+    codeGenerator.getBuilder().SetInsertPoint(loopBlock);
 
     llvm::Value *conditionValue = expression->codegen();
 
     // Create the loop condition branch instruction
-    curent_builder->CreateCondBr(conditionValue, loopBlock, mergeBlock);
+    codeGenerator.getBuilder().CreateCondBr(conditionValue, loopBlock,
+                                            mergeBlock);
 
     // Add merge block to the function
     function->getBasicBlockList().push_back(mergeBlock);
-    curent_builder->SetInsertPoint(mergeBlock);
+    codeGenerator.getBuilder().SetInsertPoint(mergeBlock);
 
     return nullptr;
   }
@@ -775,7 +776,8 @@ public:
   }
 
   Value *codegen() {
-    llvm::Function *function = curent_builder->GetInsertBlock()->getParent();
+    llvm::Function *function =
+        codeGenerator.getBuilder().GetInsertBlock()->getParent();
 
     // Create basic blocks for the for loop
     llvm::BasicBlock *initBlock = llvm::BasicBlock::Create(
@@ -790,25 +792,26 @@ public:
         codeGenerator.getContext(), "for.merge", function);
 
     // Jump to the initialization block
-    curent_builder->CreateBr(initBlock);
-    curent_builder->SetInsertPoint(initBlock);
+    codeGenerator.getBuilder().CreateBr(initBlock);
+    codeGenerator.getBuilder().SetInsertPoint(initBlock);
 
     // Generate LLVM IR code for the initialization expression
     expression1->codegen();
 
     // Jump to the loop condition block
-    curent_builder->CreateBr(loopConditionBlock);
-    curent_builder->SetInsertPoint(loopConditionBlock);
+    codeGenerator.getBuilder().CreateBr(loopConditionBlock);
+    codeGenerator.getBuilder().SetInsertPoint(loopConditionBlock);
 
     // Generate LLVM IR code for the loop condition check
     llvm::Value *conditionValue = expression2->codegen();
 
     // Create the loop condition branch instruction
-    curent_builder->CreateCondBr(conditionValue, loopBodyBlock, mergeBlock);
+    codeGenerator.getBuilder().CreateCondBr(conditionValue, loopBodyBlock,
+                                            mergeBlock);
 
     // Set the insert point to the loop body block
     function->getBasicBlockList().push_back(loopBodyBlock);
-    curent_builder->SetInsertPoint(loopBodyBlock);
+    codeGenerator.getBuilder().SetInsertPoint(loopBodyBlock);
 
     // Generate LLVM IR code for the loop body
 
@@ -821,21 +824,21 @@ public:
     merge_block = old_merge_block;
 
     // Jump to the loop iteration block
-    curent_builder->CreateBr(loopIterBlock);
+    codeGenerator.getBuilder().CreateBr(loopIterBlock);
 
     // Set the insert point to the loop iteration block
     function->getBasicBlockList().push_back(loopIterBlock);
-    curent_builder->SetInsertPoint(loopIterBlock);
+    codeGenerator.getBuilder().SetInsertPoint(loopIterBlock);
 
     // Generate LLVM IR code for the iteration expression
     expression3->codegen();
 
     // Branch back to the loop condition block
-    curent_builder->CreateBr(loopConditionBlock);
+    codeGenerator.getBuilder().CreateBr(loopConditionBlock);
 
     // Add the merge block to the function
     function->getBasicBlockList().push_back(mergeBlock);
-    curent_builder->SetInsertPoint(mergeBlock);
+    codeGenerator.getBuilder().SetInsertPoint(mergeBlock);
 
     return nullptr;
   }
@@ -874,7 +877,7 @@ public:
       throw std::runtime_error("Continue statement outside of loop");
     }
 
-    curent_builder->CreateBr(loop_block);
+    codeGenerator.getBuilder().CreateBr(loop_block);
     return nullptr;
   }
 };
@@ -892,7 +895,7 @@ public:
       throw std::runtime_error("Break statement outside of loop");
     }
 
-    curent_builder->CreateBr(merge_block);
+    codeGenerator.getBuilder().CreateBr(merge_block);
     return nullptr;
   }
 };
@@ -912,7 +915,7 @@ public:
     if (expression->getNodeType() != NodeType::Unimplemented) {
 
       llvm::Value *val_to_ret =
-          curent_builder->CreateRet(expression->codegen());
+          codeGenerator.getBuilder().CreateRet(expression->codegen());
 
       cout << "Returning value from function" << endl;
       cout << "Value returned is " << val_to_ret->getType()->getTypeID()
@@ -920,7 +923,7 @@ public:
 
       return val_to_ret;
     }
-    return curent_builder->CreateRetVoid();
+    return codeGenerator.getBuilder().CreateRetVoid();
   }
 
 private:
@@ -1021,9 +1024,9 @@ public:
 
     cout << "Name " << declarator->get().s << endl;
 
-    llvm::AllocaInst *alloca = curent_builder->CreateAlloca(
+    llvm::AllocaInst *alloca = codeGenerator.getBuilder().CreateAlloca(
         declaration_type_copy, nullptr, declarator->get().s);
-    curent_builder->CreateStore(val, alloca);
+    codeGenerator.getBuilder().CreateStore(val, alloca);
     current_symbol_table[declarator->get().s] = alloca;
     return alloca;
   }
@@ -1149,7 +1152,7 @@ public:
   Value *codegen() {
     Value *array_size = assignment_expression->codegen();
     if (array_size->getType()->getTypeID() != llvm::Type::IntegerTyID) {
-      array_size = curent_builder->CreateIntCast(
+      array_size = codeGenerator.getBuilder().CreateIntCast(
           array_size, llvm::Type::getInt32Ty(codeGenerator.getContext()), true);
     }
     llvm::Type *element_type = declaration_type;
@@ -1159,7 +1162,7 @@ public:
     uint64_t array_size_val = arraySizeInt->getZExtValue();
 
     llvm::Type *array_type = llvm::ArrayType::get(element_type, array_size_val);
-    llvm::AllocaInst *alloca = curent_builder->CreateAlloca(
+    llvm::AllocaInst *alloca = codeGenerator.getBuilder().CreateAlloca(
         array_type, nullptr, direct_declarator->get().s);
     current_symbol_table[direct_declarator->get().s] = alloca;
     return nullptr;
@@ -1220,15 +1223,16 @@ public:
 
     string func_name = direct_declarator->get().s;
     llvm::Type *current_type = declaration_type;
+
+    function_params.clear();
     fixFunctionParams();
+
     llvm::FunctionType *function_type = llvm::FunctionType::get(
         current_type, function_params, global_is_variadic);
 
     llvm::Function *function_decl =
         llvm::Function::Create(function_type, llvm::Function::ExternalLinkage,
                                func_name, codeGenerator.global_module.get());
-
-    auto x = codeGenerator.global_module->getFunction(func_name);
 
     codeGenerator.declared_functions[func_name] = function_decl;
     return nullptr;
@@ -1300,9 +1304,9 @@ public:
 
     string name = declarator->get().s;
 
-    llvm::AllocaInst *p =
-        curent_builder->CreateAlloca(declaration_type, nullptr, name);
-    curent_builder->CreateStore(
+    llvm::AllocaInst *p = codeGenerator.getBuilder().CreateAlloca(
+        declaration_type, nullptr, name);
+    codeGenerator.getBuilder().CreateStore(
         function_decl->arg_begin() + parameter_list_index, p);
 
     current_symbol_table[name] = p;
@@ -1348,7 +1352,7 @@ public:
     }
 
     llvm::Type *val_type = val->getType()->getPointerElementType();
-    return curent_builder->CreateLoad(val_type, val, name.c_str());
+    return codeGenerator.getBuilder().CreateLoad(val_type, val, name.c_str());
   }
 
 private:
@@ -1435,67 +1439,67 @@ public:
     switch (assOp) {
     case AssignmentOperator::ASSIGN:
       // Store the value to the address
-      curent_builder->CreateStore(rhsValue, lhsAddr);
+      codeGenerator.getBuilder().CreateStore(rhsValue, lhsAddr);
       break;
     /* case AssignmentOperator::MUL_ASSIGN: */
     /*     // Load the current value from the address, perform multiplication,
      * and store the result */
-    /*     curent_builder->CreateStore( */
-    /*         curent_builder->CreateMul(curent_builder->CreateLoad(lhsAddr),
+    /*     codeGenerator.getBuilder().CreateStore( */
+    /*         codeGenerator.getBuilder().CreateMul(codeGenerator.getBuilder().CreateLoad(lhsAddr),
      * rhsValue), lhsAddr); */
     /*     break; */
     /* case AssignmentOperator::DIV_ASSIGN: */
     /*     // Perform division and store the result */
-    /*     curent_builder->CreateStore( */
-    /*         curent_builder->CreateSDiv(curent_builder->CreateLoad(lhsAddr),
+    /*     codeGenerator.getBuilder().CreateStore( */
+    /*         codeGenerator.getBuilder().CreateSDiv(codeGenerator.getBuilder().CreateLoad(lhsAddr),
      * rhsValue), lhsAddr); */
     /*     break; */
     /* case AssignmentOperator::MOD_ASSIGN: */
     /*     // Perform modulus and store the result */
-    /*     curent_builder->CreateStore( */
-    /*         curent_builder->CreateSRem(curent_builder->CreateLoad(lhsAddr),
+    /*     codeGenerator.getBuilder().CreateStore( */
+    /*         codeGenerator.getBuilder().CreateSRem(codeGenerator.getBuilder().CreateLoad(lhsAddr),
      * rhsValue), lhsAddr); */
     /*     break; */
     /* case AssignmentOperator::ADD_ASSIGN: */
     /*     // Perform addition and store the result */
-    /*     curent_builder->CreateStore( */
-    /*         curent_builder->CreateAdd(curent_builder->CreateLoad(lhsAddr),
+    /*     codeGenerator.getBuilder().CreateStore( */
+    /*         codeGenerator.getBuilder().CreateAdd(codeGenerator.getBuilder().CreateLoad(lhsAddr),
      * rhsValue), lhsAddr); */
     /*     break; */
     /* case AssignmentOperator::SUB_ASSIGN: */
     /*     // Perform subtraction and store the result */
-    /*     curent_builder->CreateStore( */
-    /*         curent_builder->CreateSub(curent_builder->CreateLoad(lhsAddr),
+    /*     codeGenerator.getBuilder().CreateStore( */
+    /*         codeGenerator.getBuilder().CreateSub(codeGenerator.getBuilder().CreateLoad(lhsAddr),
      * rhsValue), lhsAddr); */
     /*     break; */
     /* case AssignmentOperator::LEFT_ASSIGN: */
     /*     // Perform left shift and store the result */
-    /*     curent_builder->CreateStore( */
-    /*         curent_builder->CreateShl(curent_builder->CreateLoad(lhsAddr),
+    /*     codeGenerator.getBuilder().CreateStore( */
+    /*         codeGenerator.getBuilder().CreateShl(codeGenerator.getBuilder().CreateLoad(lhsAddr),
      * rhsValue), lhsAddr); */
     /*     break; */
     /* case AssignmentOperator::RIGHT_ASSIGN: */
     /*     // Perform right shift and store the result */
-    /*     curent_builder->CreateStore( */
-    /*         curent_builder->CreateAShr(curent_builder->CreateLoad(lhsAddr),
+    /*     codeGenerator.getBuilder().CreateStore( */
+    /*         codeGenerator.getBuilder().CreateAShr(codeGenerator.getBuilder().CreateLoad(lhsAddr),
      * rhsValue), lhsAddr); */
     /*     break; */
     /* case AssignmentOperator::AND_ASSIGN: */
     /*     // Perform bitwise AND and store the result */
-    /*     curent_builder->CreateStore( */
-    /*         curent_builder->CreateAnd(curent_builder->CreateLoad(lhsAddr),
+    /*     codeGenerator.getBuilder().CreateStore( */
+    /*         codeGenerator.getBuilder().CreateAnd(codeGenerator.getBuilder().CreateLoad(lhsAddr),
      * rhsValue), lhsAddr); */
     /*     break; */
     /* case AssignmentOperator::XOR_ASSIGN: */
     /*     // Perform bitwise XOR and store the result */
-    /*     curent_builder->CreateStore( */
-    /*         curent_builder->CreateXor(curent_builder->CreateLoad(lhsAddr),
+    /*     codeGenerator.getBuilder().CreateStore( */
+    /*         codeGenerator.getBuilder().CreateXor(codeGenerator.getBuilder().CreateLoad(lhsAddr),
      * rhsValue), lhsAddr); */
     /*     break; */
     /* case AssignmentOperator::OR_ASSIGN: */
     /*     // Perform bitwise OR and store the result */
-    /*     curent_builder->CreateStore( */
-    /*         curent_builder->CreateOr(curent_builder->CreateLoad(lhsAddr),
+    /*     codeGenerator.getBuilder().CreateStore( */
+    /*         codeGenerator.getBuilder().CreateOr(codeGenerator.getBuilder().CreateLoad(lhsAddr),
      * rhsValue), lhsAddr); */
     /*     break; */
     default:
@@ -1533,29 +1537,29 @@ public:
     cout << "Array access node" << endl;
 
     Value *postFixValue = postfix_expression->codegen();
+
+    bool prev_get_as_lvalue = get_as_lvalue;
+    get_as_lvalue = false;
     Value *indexValue = expression->codegen();
+    get_as_lvalue = prev_get_as_lvalue;
 
     if (postFixValue->getType()->getTypeID() != llvm::Type::PointerTyID) {
       throw std::runtime_error("Array access on non-pointer type");
     }
 
     llvm::Type *element_type = postFixValue->getType()->getPointerElementType();
-    llvm::Value *val_to_ret =
-        curent_builder->CreateGEP(element_type, postFixValue, indexValue);
+
+    llvm::Value *val_to_ret = codeGenerator.getBuilder().CreateGEP(
+        element_type, postFixValue, {indexValue});
 
     /* llvm::Value *zero = llvm::ConstantInt::get( */
     /*     llvm::Type::getInt32Ty(codeGenerator.getContext()), 0); */
     /* llvm::Value *indices[] = {zero, indexValue}; */
     /**/
     /* llvm::Value *val_to_ret = */
-    /* curent_builder->CreateGEP(element_type, postFixValue, indices); */
-    return curent_builder->CreateLoad(element_type, val_to_ret);
-
-    if (get_as_lvalue) {
-      return val_to_ret;
-    }
-
-    return curent_builder->CreateLoad(element_type, val_to_ret);
+    /* codeGenerator.getBuilder().CreateGEP(element_type, postFixValue,
+     * indices); */
+    return codeGenerator.getBuilder().CreateLoad(element_type, val_to_ret);
   }
 
 private:
@@ -1600,7 +1604,8 @@ public:
     for (auto arg : args) {
       arguments.push_back(arg->codegen());
     }
-    return curent_builder->CreateCall(function, arguments);
+    return codeGenerator.getBuilder().CreateCall(function, arguments,
+                                                 function_name + "_call");
   }
 
 private:
@@ -1615,6 +1620,93 @@ public:
   string dump_ast(int depth = 0) const {
     return dumpParameters(this, children, depth, true);
   }
+};
+
+class UnaryExpressionNode : public ASTNode {
+public:
+  UnaryExpressionNode(UnaryOperator un_op, ASTNode *unary_expression)
+      : ASTNode(NodeType::UnaryExpressionNode),
+        unary_expression(unary_expression), un_op(un_op) {}
+
+  string dump_ast(int depth = 0) const {
+    string result = formatSpacing(depth);
+    result += "Prefix: " + unaryOperatorToString(un_op) + "{ \n";
+    result += unary_expression->dump_ast(depth + 1);
+    result += formatSpacing(depth) + "} \n";
+    return result;
+  }
+
+  Value *codegen() {
+    bool old_get_as_lvalue = get_as_lvalue;
+    if (un_op == UnaryOperator::INC_OP || un_op == UnaryOperator::DEC_OP ||
+        un_op == UnaryOperator::ADDRESS_OF) {
+      get_as_lvalue = true;
+    }
+    Value *val = unary_expression->codegen();
+    get_as_lvalue = old_get_as_lvalue;
+
+    switch (un_op) {
+    case UnaryOperator::INC_OP: {
+      llvm::Type *val_type = val->getType()->getPointerElementType();
+      Value *old_val = codeGenerator.getBuilder().CreateLoad(val_type, val);
+      Value *new_val = codeGenerator.getBuilder().CreateAdd(
+          old_val,
+          llvm::ConstantInt::get(
+              llvm::Type::getInt32Ty(codeGenerator.getContext()), 1, true),
+          "inc");
+      codeGenerator.getBuilder().CreateStore(new_val, val);
+      return new_val;
+    }
+    case UnaryOperator::DEC_OP: {
+      llvm::Type *val_type = val->getType()->getPointerElementType();
+      Value *old_val = codeGenerator.getBuilder().CreateLoad(val_type, val);
+      Value *new_val = codeGenerator.getBuilder().CreateSub(
+          old_val,
+          llvm::ConstantInt::get(
+              llvm::Type::getInt32Ty(codeGenerator.getContext()), 1, true),
+          "inc");
+      codeGenerator.getBuilder().CreateStore(new_val, val);
+      return new_val;
+    }
+
+    case UnaryOperator::SIZEOF:
+      return llvm::ConstantInt::get(
+          llvm::Type::getInt32Ty(codeGenerator.getContext()),
+          val->getType()->getPrimitiveSizeInBits() / 8, true);
+
+    case UnaryOperator::ALIGNOF:
+      return llvm::ConstantInt::get(
+          llvm::Type::getInt32Ty(codeGenerator.getContext()),
+          val->getType()->getPrimitiveSizeInBits() / 8, true);
+
+    case UnaryOperator::ADDRESS_OF:
+      return val;
+
+    case UnaryOperator::MUL_OP:
+      return codeGenerator.getBuilder().CreateLoad(
+          val->getType()->getPointerElementType(), val);
+    case UnaryOperator::PLUS:
+      return val;
+    case UnaryOperator::MINUS:
+      return codeGenerator.getBuilder().CreateNeg(val);
+    case UnaryOperator::BITWISE_NOT:
+      return codeGenerator.getBuilder().CreateNot(val);
+    case UnaryOperator::LOGICAL_NOT: {
+      Value *cmp = codeGenerator.getBuilder().CreateICmpNE(
+          val,
+          llvm::ConstantInt::get(codeGenerator.getBuilder().getInt32Ty(), 0));
+      Value *boolVal = codeGenerator.getBuilder().CreateZExt(
+          cmp, codeGenerator.getBuilder().getInt1Ty());
+      return codeGenerator.getBuilder().CreateNot(boolVal);
+    }
+    }
+
+    return val;
+  }
+
+private:
+  ASTNode *unary_expression;
+  UnaryOperator un_op;
 };
 
 class MemberAccessNode : public ASTNode {
@@ -1650,6 +1742,45 @@ public:
 
   bool check_semantics() { return primary_expression->check_semantics(); }
 
+  Value *codegen() {
+    bool old_get_as_lvalue = get_as_lvalue;
+    if (postFixOp == UnaryOperator::INC_OP ||
+        postFixOp == UnaryOperator::DEC_OP) {
+      get_as_lvalue = true;
+    }
+    Value *val = primary_expression->codegen();
+    get_as_lvalue = old_get_as_lvalue;
+
+    switch (postFixOp) {
+
+    case UnaryOperator::INC_OP: {
+      llvm::Type *val_type = val->getType()->getPointerElementType();
+      Value *old_val = codeGenerator.getBuilder().CreateLoad(val_type, val);
+      Value *new_val = codeGenerator.getBuilder().CreateAdd(
+          old_val,
+          llvm::ConstantInt::get(
+              llvm::Type::getInt32Ty(codeGenerator.getContext()), 1, true),
+          "inc");
+      codeGenerator.getBuilder().CreateStore(new_val, val);
+      return old_val;
+    }
+    case UnaryOperator::DEC_OP: {
+
+      llvm::Type *val_type = val->getType()->getPointerElementType();
+      Value *old_val = codeGenerator.getBuilder().CreateLoad(val_type, val);
+      Value *new_val = codeGenerator.getBuilder().CreateSub(
+          old_val,
+          llvm::ConstantInt::get(
+              llvm::Type::getInt32Ty(codeGenerator.getContext()), 1, true),
+          "inc");
+      codeGenerator.getBuilder().CreateStore(new_val, val);
+      return old_val;
+    }
+    default:
+      return val;
+    }
+  }
+
 private:
   ASTNode *primary_expression;
   UnaryOperator postFixOp;
@@ -1678,13 +1809,14 @@ public:
   Value *codegen() {
 
     Value *conditionValue = logical_or_expression->codegen();
-    Value *condition = curent_builder->CreateICmpNE(
+    Value *condition = codeGenerator.getBuilder().CreateICmpNE(
         conditionValue,
         llvm::ConstantInt::get(
             llvm::Type::getInt1Ty(codeGenerator.getContext()), 0, true),
         "ifcond");
 
-    llvm::Function *function = curent_builder->GetInsertBlock()->getParent();
+    llvm::Function *function =
+        codeGenerator.getBuilder().GetInsertBlock()->getParent();
 
     llvm::BasicBlock *then_block =
         llvm::BasicBlock::Create(codeGenerator.getContext(), "then", function);
@@ -1693,26 +1825,27 @@ public:
     llvm::BasicBlock *merge_block =
         llvm::BasicBlock::Create(codeGenerator.getContext(), "ifcont");
 
-    curent_builder->CreateCondBr(condition, then_block, else_block);
+    codeGenerator.getBuilder().CreateCondBr(condition, then_block, else_block);
 
-    curent_builder->SetInsertPoint(then_block);
+    codeGenerator.getBuilder().SetInsertPoint(then_block);
     Value *thenValue = expression->codegen();
-    curent_builder->CreateBr(
+    codeGenerator.getBuilder().CreateBr(
         merge_block); // Branch to merge block after executing thenBlock
 
     // Set insertion point for the "else" block
     function->getBasicBlockList().push_back(else_block);
-    curent_builder->SetInsertPoint(else_block);
+    codeGenerator.getBuilder().SetInsertPoint(else_block);
     Value *elseValue = conditional_expression->codegen();
-    curent_builder->CreateBr(
+    codeGenerator.getBuilder().CreateBr(
         merge_block); // Branch to merge block after executing elseBlock
 
     // Set insertion point for the merge block
     function->getBasicBlockList().push_back(merge_block);
-    curent_builder->SetInsertPoint(merge_block);
+    codeGenerator.getBuilder().SetInsertPoint(merge_block);
 
     // Create phi node to merge the results from thenBlock and elseBlock
-    llvm::PHINode *phiNode = curent_builder->CreatePHI(thenValue->getType(), 2);
+    llvm::PHINode *phiNode =
+        codeGenerator.getBuilder().CreatePHI(thenValue->getType(), 2);
     phiNode->addIncoming(thenValue, then_block);
     phiNode->addIncoming(elseValue, else_block);
 
@@ -1746,7 +1879,7 @@ public:
   Value *codegen() {
     Value *lhs = logical_or_expression->codegen();
     Value *rhs = logical_and_expression->codegen();
-    return curent_builder->CreateOr(lhs, rhs, "or");
+    return codeGenerator.getBuilder().CreateOr(lhs, rhs, "or");
   }
 
 private:
@@ -1775,7 +1908,7 @@ public:
   Value *codegen() {
     Value *lhs = logical_and_expression->codegen();
     Value *rhs = inclusive_or_expression->codegen();
-    return curent_builder->CreateAnd(lhs, rhs, "and");
+    return codeGenerator.getBuilder().CreateAnd(lhs, rhs, "and");
   }
 
 private:
@@ -1804,7 +1937,7 @@ public:
   Value *codegen() {
     Value *lhs = inclusive_or_expression->codegen();
     Value *rhs = exclusive_or_expression->codegen();
-    return curent_builder->CreateOr(lhs, rhs, "or");
+    return codeGenerator.getBuilder().CreateOr(lhs, rhs, "or");
   }
 
 private:
@@ -1833,7 +1966,7 @@ public:
   Value *codegen() {
     Value *lhs = exclusive_or_expression->codegen();
     Value *rhs = and_expression->codegen();
-    return curent_builder->CreateXor(lhs, rhs, "xor");
+    return codeGenerator.getBuilder().CreateXor(lhs, rhs, "xor");
   }
 
 private:
@@ -1860,7 +1993,7 @@ public:
   Value *codegen() {
     Value *lhs = and_expression->codegen();
     Value *rhs = equality_expression->codegen();
-    return curent_builder->CreateAnd(lhs, rhs, "and");
+    return codeGenerator.getBuilder().CreateAnd(lhs, rhs, "and");
   }
 
 private:
@@ -1889,7 +2022,7 @@ public:
   Value *codegen() {
     Value *lhs = equality_expression->codegen();
     Value *rhs = relational_expression->codegen();
-    return curent_builder->CreateICmpEQ(lhs, rhs, "equal");
+    return codeGenerator.getBuilder().CreateICmpEQ(lhs, rhs, "equal");
   }
 
 private:
@@ -1918,7 +2051,7 @@ public:
   Value *codegen() {
     Value *lhs = equality_expression->codegen();
     Value *rhs = relational_expression->codegen();
-    return curent_builder->CreateICmpNE(lhs, rhs, "nequal");
+    return codeGenerator.getBuilder().CreateICmpNE(lhs, rhs, "nequal");
   }
 
 private:
@@ -1947,7 +2080,7 @@ public:
   Value *codegen() {
     Value *lhs = relational_expression->codegen();
     Value *rhs = shift_expression->codegen();
-    return curent_builder->CreateICmpSLT(lhs, rhs, "lt");
+    return codeGenerator.getBuilder().CreateICmpSLT(lhs, rhs, "lt");
   }
 
 private:
@@ -1976,7 +2109,7 @@ public:
   Value *codegen() {
     Value *lhs = relational_expression->codegen();
     Value *rhs = shift_expression->codegen();
-    return curent_builder->CreateICmpSGT(lhs, rhs, "gt");
+    return codeGenerator.getBuilder().CreateICmpSGT(lhs, rhs, "gt");
   }
 
 private:
@@ -2005,7 +2138,7 @@ public:
   Value *codegen() {
     Value *lhs = relational_expression->codegen();
     Value *rhs = shift_expression->codegen();
-    return curent_builder->CreateICmpSLE(lhs, rhs, "le");
+    return codeGenerator.getBuilder().CreateICmpSLE(lhs, rhs, "le");
   }
 
 private:
@@ -2034,7 +2167,7 @@ public:
   Value *codegen() {
     Value *lhs = relational_expression->codegen();
     Value *rhs = shift_expression->codegen();
-    return curent_builder->CreateICmpSGE(lhs, rhs, "ge");
+    return codeGenerator.getBuilder().CreateICmpSGE(lhs, rhs, "ge");
   }
 
 private:
@@ -2063,7 +2196,7 @@ public:
   Value *codegen() {
     Value *lhs = shift_expression->codegen();
     Value *rhs = additive_expression->codegen();
-    return curent_builder->CreateShl(lhs, rhs, "shl");
+    return codeGenerator.getBuilder().CreateShl(lhs, rhs, "shl");
   }
 
 private:
@@ -2091,7 +2224,7 @@ public:
   Value *codegen() {
     Value *lhs = shift_expression->codegen();
     Value *rhs = additive_expression->codegen();
-    return curent_builder->CreateAShr(lhs, rhs, "ashr");
+    return codeGenerator.getBuilder().CreateAShr(lhs, rhs, "ashr");
   }
 
 private:
@@ -2119,7 +2252,7 @@ public:
   Value *codegen() {
     Value *lhs = additive_expression->codegen();
     Value *rhs = multiplicative_expression->codegen();
-    return curent_builder->CreateAdd(lhs, rhs, "add");
+    return codeGenerator.getBuilder().CreateAdd(lhs, rhs, "add");
   }
 
 private:
@@ -2148,7 +2281,7 @@ public:
   Value *codegen() {
     Value *lhs = additive_expression->codegen();
     Value *rhs = multiplicative_expression->codegen();
-    return curent_builder->CreateSub(lhs, rhs, "sub");
+    return codeGenerator.getBuilder().CreateSub(lhs, rhs, "sub");
   }
 
 private:
@@ -2177,7 +2310,7 @@ public:
   Value *codegen() {
     Value *lhs = multiplicative_expression->codegen();
     Value *rhs = cast_expression->codegen();
-    return curent_builder->CreateMul(lhs, rhs, "mul");
+    return codeGenerator.getBuilder().CreateMul(lhs, rhs, "mul");
   }
 
 private:
@@ -2206,7 +2339,7 @@ public:
   Value *codegen() {
     Value *lhs = multiplicative_expression->codegen();
     Value *rhs = cast_expression->codegen();
-    return curent_builder->CreateSDiv(lhs, rhs, "div");
+    return codeGenerator.getBuilder().CreateSDiv(lhs, rhs, "div");
   }
 
 private:
@@ -2235,7 +2368,7 @@ public:
   Value *codegen() {
     Value *lhs = multiplicative_expression->codegen();
     Value *rhs = cast_expression->codegen();
-    return curent_builder->CreateSRem(lhs, rhs, "mod");
+    return codeGenerator.getBuilder().CreateSRem(lhs, rhs, "mod");
   }
 
 private:
@@ -2314,12 +2447,15 @@ public:
     llvm::GlobalVariable *strVar = new llvm::GlobalVariable(
         *codeGenerator.global_module, strConstant->getType(), true,
         llvm::GlobalValue::ExternalLinkage, strConstant, "str");
-    return curent_builder->CreatePointerCast(strVar,
-                                             curent_builder->getInt8PtrTy());
+
+    strVar->setConstant(false);
+
+    return codeGenerator.getBuilder().CreatePointerCast(
+        strVar, codeGenerator.getBuilder().getInt8PtrTy());
   }
 
 private:
   string value;
 };
 
-#endif // AST_HPP
+#endif // AST_HP

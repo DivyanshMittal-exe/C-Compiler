@@ -126,10 +126,10 @@ argument_expression_list
 
 unary_expression
 	: postfix_expression { $$ = $1; }
-	| INC_OP unary_expression { $$ = new NullPtrNode(); }
-	| DEC_OP unary_expression { $$ = new NullPtrNode(); }
-	| unary_operator cast_expression { $$ = new NullPtrNode(); }
-	| SIZEOF unary_expression { $$ = new NullPtrNode(); }
+	| INC_OP unary_expression { $$ = new UnaryExpressionNode(UnaryOperator::INC_OP,$2); }
+	| DEC_OP unary_expression { $$ = new UnaryExpressionNode(UnaryOperator::DEC_OP,$2); }
+	| unary_operator cast_expression { $$ = new UnaryExpressionNode($1,$2); }
+	| SIZEOF unary_expression { $$ = new UnaryExpressionNode(UnaryOperator::SIZEOF,$2); }
 	| SIZEOF '(' type_name ')' { $$ = new NullPtrNode(); }
 	| ALIGNOF '(' type_name ')' { $$ = new NullPtrNode(); }
 	;

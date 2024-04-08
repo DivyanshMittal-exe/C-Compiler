@@ -16,7 +16,8 @@ using namespace std;
 class CodeGenerator {
 public:
   vector<unique_ptr<llvm::LLVMContext>> contexts;
-  vector<unique_ptr<llvm::IRBuilder<>>> builders;
+
+  unique_ptr<llvm::IRBuilder<>> builder;
 
   unique_ptr<llvm::Module> global_module;
 
@@ -28,12 +29,12 @@ public:
   CodeGenerator() {
     unique_ptr<llvm::LLVMContext> global_context =
         make_unique<llvm::LLVMContext>();
-    unique_ptr<llvm::IRBuilder<>> global_builder =
-        make_unique<llvm::IRBuilder<>>(*global_context);
+    builder = make_unique<llvm::IRBuilder<>>(*global_context);
     global_module = make_unique<llvm::Module>("global_module", *global_context);
     contexts.push_back(std::move(global_context));
-    builders.push_back(std::move(global_builder));
   }
+
+  llvm::IRBuilder<> &getBuilder() { return *builder; }
 
   bool isFunctionDeclaredButNotDefined(string name) {
     return declared_functions.find(name) != declared_functions.end();

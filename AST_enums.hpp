@@ -43,6 +43,7 @@ enum class NodeType {
   ArrayAccess,
   FunctionCall,
   ArgumentExpressionList,
+  UnaryExpressionNode,
   MemberAccess,
   PostfixExpression,
   ConditionalExpression,
@@ -323,6 +324,8 @@ static std::string nodeTypeToString(NodeType type) {
     return "FunctionCall";
   case NodeType::ArgumentExpressionList:
     return "ArgumentExpressionList";
+  case NodeType::UnaryExpressionNode:
+    return "UnaryExpressionNode";
   case NodeType::MemberAccess:
     return "MemberAccess";
   case NodeType::PostfixExpression:

@@ -2151,25 +2151,25 @@ yyreduce:
 
   case 31: /* unary_expression: INC_OP unary_expression  */
 #line 129 "c.y"
-                                  { (yyval.base_node) = new NullPtrNode(); }
+                                  { (yyval.base_node) = new UnaryExpressionNode(UnaryOperator::INC_OP,(yyvsp[0].base_node)); }
 #line 2156 "c.tab.cpp"
     break;
 
   case 32: /* unary_expression: DEC_OP unary_expression  */
 #line 130 "c.y"
-                                  { (yyval.base_node) = new NullPtrNode(); }
+                                  { (yyval.base_node) = new UnaryExpressionNode(UnaryOperator::DEC_OP,(yyvsp[0].base_node)); }
 #line 2162 "c.tab.cpp"
     break;
 
   case 33: /* unary_expression: unary_operator cast_expression  */
 #line 131 "c.y"
-                                         { (yyval.base_node) = new NullPtrNode(); }
+                                         { (yyval.base_node) = new UnaryExpressionNode((yyvsp[-1].un_op),(yyvsp[0].base_node)); }
 #line 2168 "c.tab.cpp"
     break;
 
   case 34: /* unary_expression: SIZEOF unary_expression  */
 #line 132 "c.y"
-                                  { (yyval.base_node) = new NullPtrNode(); }
+                                  { (yyval.base_node) = new UnaryExpressionNode(UnaryOperator::SIZEOF,(yyvsp[0].base_node)); }
 #line 2174 "c.tab.cpp"
     break;
 

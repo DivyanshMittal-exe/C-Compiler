@@ -1,35 +1,47 @@
 ; ModuleID = 'global_module'
 source_filename = "global_module"
 
-@str = constant [6 x i8] c"Hello\00"
-@str.1 = constant [8 x i8] c"j = %c\0A\00"
-@str.2 = constant [8 x i8] c"s = %s\0A\00"
+@str = global [8 x i8] c"k = %d\0A\00"
+@str.1 = global [8 x i8] c"k = %d\0A\00"
+
+define i32 @ver(i32 %0) {
+entry:
+  %n = alloca i32, align 4
+  store i32 %0, i32* %n, align 4
+  %n1 = load i32, i32* %n, align 4
+  %equal = icmp eq i32 %n1, 0
+  %ifcond = icmp ne i1 %equal, false
+  br i1 %ifcond, label %then, label %else
+
+then:                                             ; preds = %entry
+  ret i32 1
+  br label %ifcont
+
+else:                                             ; preds = %entry
+  %n2 = load i32, i32* %n, align 4
+  %n3 = load i32, i32* %n, align 4
+  %sub = sub i32 %n3, 1
+  %ver_call = call i32 @ver(i32 %sub)
+  %mul = mul i32 %n2, %ver_call
+  ret i32 %mul
+  br label %ifcont
+
+ifcont:                                           ; preds = %else, %then
+  ret i32 0
+}
 
 declare i32 @printf(i8*, ...)
 
 define i32 @main() {
 entry:
-  %a = alloca i32, align 4
-  store i32 1, i32* %a, align 4
-  %a1 = load i32, i32* %a, align 4
-  %b = alloca i32, align 4
-  store i32 %a1, i32* %b, align 4
-  %t = alloca i8, align 1
-  store i8 115, i8* %t, align 1
-  %s = alloca i8*, align 8
-  store i8* getelementptr inbounds ([6 x i8], [6 x i8]* @str, i32 0, i32 0), i8** %s, align 8
-  %s2 = load i8*, i8** %s, align 8
-  %0 = getelementptr i8, i8* %s2, i32 1
-  %1 = load i8, i8* %0, align 1
-  %j = alloca i8, align 1
-  store i8 %1, i8* %j, align 1
-  %2 = getelementptr i8*, i8** %s, i32 2
-  %3 = load i8*, i8** %2, align 8
-  store i8 97, i8* %3, align 1
-  %j3 = load i8, i8* %j, align 1
-  %4 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([8 x i8], [8 x i8]* @str.1, i32 0, i32 0), i8 %j3)
-  %s4 = load i8*, i8** %s, align 8
-  %5 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([8 x i8], [8 x i8]* @str.2, i32 0, i32 0), i8* %s4)
+  %k = alloca i32, align 4
+  store i32 0, i32* %k, align 4
+  %k1 = load i32, i32* %k, align 4
+  %printf_call = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([8 x i8], [8 x i8]* @str, i32 0, i32 0), i32 %k1)
+  %ver_call = call i32 @ver(i32 5)
+  store i32 %ver_call, i32* %k, align 4
+  %k2 = load i32, i32* %k, align 4
+  %printf_call3 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([8 x i8], [8 x i8]* @str.1, i32 0, i32 0), i32 %k2)
   ret i32 0
   ret i32 0
 }
