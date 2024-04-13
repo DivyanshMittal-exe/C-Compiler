@@ -46,6 +46,7 @@ enum class NodeType {
   UnaryExpressionNode,
   MemberAccess,
   PostfixExpression,
+  InitializerList,
   ConditionalExpression,
   LogicalOrExpression,
   LogicalAndExpression,
@@ -332,6 +333,8 @@ static std::string nodeTypeToString(NodeType type) {
     return "PostfixExpression";
   case NodeType::ConditionalExpression:
     return "ConditionalExpression";
+  case NodeType::InitializerList:
+    return "InitializerList";
   case NodeType::LogicalOrExpression:
     return "LogicalOrExpression";
   case NodeType::LogicalAndExpression:

@@ -74,11 +74,14 @@ public:
   }
 
   virtual llvm::Value *codegen() {
-
     cerr << "Codegen called for " << nodeTypeToString(type) << endl;
 
     throw std::runtime_error("Unimplemented codegen() function.");
   }
+
+  virtual ASTNode *optimise() {}
+
+  virtual m_Value get_value_if_possible() {}
 
   virtual void buildFunctionParams(llvm::Function *function_decl) {
     cout << "buildFunctionParams called on base class | "
@@ -177,6 +180,15 @@ public:
       }
     }
     return true;
+  }
+
+  m_Value get_value_if_possible() { return m_Value(); }
+
+  ASTNode *optimise() {
+    for (auto &child : children) {
+      child = child->optimise();
+    }
+    return this;
   }
 
   Value *codegen() {
@@ -468,8 +480,35 @@ public:
     return true;
   }
 
+  ASTNode *optimise() {
+    expression = expression->optimise();
+
+    if (expression->get_value_if_possible().type != NO_VALUE) {
+      m_Value val = expression->get_value_if_possible();
+      if (val.type == BOOL) {
+        if (val.b) {
+          return statement->optimise();
+        } else {
+          return else_statement->optimise();
+        }
+      }
+    }
+
+    statement = statement->optimise();
+    else_statement = else_statement->optimise();
+    return this;
+  }
+
   Value *codegen() {
     llvm::Value *conditionValue = expression->codegen();
+    if (!conditionValue) {
+      throw std::runtime_error("Condition value is null");
+    }
+    if (conditionValue->getType()->getTypeID() != llvm::Type::IntegerTyID) {
+      conditionValue = codeGenerator.getBuilder().CreateIntCast(
+          conditionValue, llvm::Type::getInt1Ty(codeGenerator.getContext()),
+          true);
+    }
     llvm::Value *condition = codeGenerator.getBuilder().CreateICmpNE(
         conditionValue,
         llvm::ConstantInt::get(
@@ -1164,7 +1203,14 @@ public:
   }
 
   Value *codegen() {
-    Value *array_size = assignment_expression->codegen();
+
+    Value *array_size = nullptr;
+    if (assignment_expression->getNodeType() == NodeType::Unimplemented) {
+
+    } else {
+      array_size = assignment_expression->codegen();
+    }
+
     if (array_size->getType()->getTypeID() != llvm::Type::IntegerTyID) {
       array_size = codeGenerator.getBuilder().CreateIntCast(
           array_size, llvm::Type::getInt32Ty(codeGenerator.getContext()), true);
@@ -1448,6 +1494,17 @@ public:
     get_as_lvalue = true;
     Value *lhsAddr = unary_expression->codegen();
     get_as_lvalue = false;
+
+    cout << "rhsValue type is " << rhsValue->getType()->getTypeID() << endl;
+    cout << "lhsAddr type is "
+         << lhsAddr->getType()->getPointerElementType()->getTypeID() << endl;
+
+    if (rhsValue->getType() != lhsAddr->getType()->getPointerElementType()) {
+      // Perform type casting of rhsValue to match the type of lhsAddr
+      cout << "Casting rhsValue to match the type of lhsAddr" << endl;
+      rhsValue = codeGenerator.getBuilder().CreateBitOrPointerCast(
+          rhsValue, lhsAddr->getType()->getPointerElementType());
+    }
 
     // Perform the assignment based on the operator
     switch (assOp) {
@@ -1800,6 +1857,11 @@ private:
   UnaryOperator postFixOp;
 };
 
+class InitializerListNode : public ASTNode {
+public:
+  InitializerListNode() : ASTNode(NodeType::InitializerList) {}
+};
+
 class ConditionalExpressionNode : public ASTNode {
 public:
   ConditionalExpressionNode(ASTNode *logical_or_expression, ASTNode *expression,
@@ -1823,6 +1885,12 @@ public:
   Value *codegen() {
 
     Value *conditionValue = logical_or_expression->codegen();
+    if (conditionValue->getType()->getTypeID() != llvm::Type::IntegerTyID) {
+      conditionValue = codeGenerator.getBuilder().CreateIntCast(
+          conditionValue, llvm::Type::getInt1Ty(codeGenerator.getContext()),
+          true);
+    }
+
     Value *condition = codeGenerator.getBuilder().CreateICmpNE(
         conditionValue,
         llvm::ConstantInt::get(
@@ -1893,6 +1961,16 @@ public:
   Value *codegen() {
     Value *lhs = logical_or_expression->codegen();
     Value *rhs = logical_and_expression->codegen();
+    if (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID) {
+      lhs = codeGenerator.getBuilder().CreateIntCast(
+          lhs, llvm::Type::getInt1Ty(codeGenerator.getContext()), true);
+    }
+
+    if (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID) {
+      rhs = codeGenerator.getBuilder().CreateIntCast(
+          rhs, llvm::Type::getInt1Ty(codeGenerator.getContext()), true);
+    }
+
     return codeGenerator.getBuilder().CreateOr(lhs, rhs, "or");
   }
 
@@ -1922,6 +2000,16 @@ public:
   Value *codegen() {
     Value *lhs = logical_and_expression->codegen();
     Value *rhs = inclusive_or_expression->codegen();
+
+    if (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID) {
+      lhs = codeGenerator.getBuilder().CreateIntCast(
+          lhs, llvm::Type::getInt1Ty(codeGenerator.getContext()), true);
+    }
+    if (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID) {
+      rhs = codeGenerator.getBuilder().CreateIntCast(
+          rhs, llvm::Type::getInt1Ty(codeGenerator.getContext()), true);
+    }
+
     return codeGenerator.getBuilder().CreateAnd(lhs, rhs, "and");
   }
 
@@ -1951,6 +2039,14 @@ public:
   Value *codegen() {
     Value *lhs = inclusive_or_expression->codegen();
     Value *rhs = exclusive_or_expression->codegen();
+
+    if (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID) {
+      throw std::runtime_error("lhs is not an integer");
+    }
+    if (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID) {
+      throw std::runtime_error("rhs is not an integer");
+    }
+
     return codeGenerator.getBuilder().CreateOr(lhs, rhs, "or");
   }
 
@@ -1980,6 +2076,14 @@ public:
   Value *codegen() {
     Value *lhs = exclusive_or_expression->codegen();
     Value *rhs = and_expression->codegen();
+
+    if (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID) {
+      throw std::runtime_error("lhs is not an integer");
+    }
+    if (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID) {
+      throw std::runtime_error("rhs is not an integer");
+    }
+
     return codeGenerator.getBuilder().CreateXor(lhs, rhs, "xor");
   }
 
@@ -2007,6 +2111,14 @@ public:
   Value *codegen() {
     Value *lhs = and_expression->codegen();
     Value *rhs = equality_expression->codegen();
+
+    if (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID) {
+      throw std::runtime_error("lhs is not an integer");
+    }
+    if (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID) {
+      throw std::runtime_error("rhs is not an integer");
+    }
+
     return codeGenerator.getBuilder().CreateAnd(lhs, rhs, "and");
   }
 
@@ -2036,6 +2148,24 @@ public:
   Value *codegen() {
     Value *lhs = equality_expression->codegen();
     Value *rhs = relational_expression->codegen();
+
+    bool use_float = false;
+
+    use_float |= (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
+    use_float |= (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
+
+    if (use_float) {
+      if (lhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
+        lhs = codeGenerator.getBuilder().CreateSIToFP(
+            lhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
+      }
+      if (rhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
+        rhs = codeGenerator.getBuilder().CreateSIToFP(
+            rhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
+      }
+      return codeGenerator.getBuilder().CreateFCmpOEQ(lhs, rhs, "equal");
+    }
+
     return codeGenerator.getBuilder().CreateICmpEQ(lhs, rhs, "equal");
   }
 
@@ -2065,6 +2195,24 @@ public:
   Value *codegen() {
     Value *lhs = equality_expression->codegen();
     Value *rhs = relational_expression->codegen();
+
+    bool use_float = false;
+
+    use_float |= (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
+    use_float |= (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
+
+    if (use_float) {
+      if (lhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
+        lhs = codeGenerator.getBuilder().CreateSIToFP(
+            lhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
+      }
+      if (rhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
+        rhs = codeGenerator.getBuilder().CreateSIToFP(
+            rhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
+      }
+      return codeGenerator.getBuilder().CreateFCmpONE(lhs, rhs, "equal");
+    }
+
     return codeGenerator.getBuilder().CreateICmpNE(lhs, rhs, "nequal");
   }
 
@@ -2094,6 +2242,24 @@ public:
   Value *codegen() {
     Value *lhs = relational_expression->codegen();
     Value *rhs = shift_expression->codegen();
+
+    bool use_float = false;
+
+    use_float |= (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
+    use_float |= (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
+
+    if (use_float) {
+      if (lhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
+        lhs = codeGenerator.getBuilder().CreateSIToFP(
+            lhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
+      }
+      if (rhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
+        rhs = codeGenerator.getBuilder().CreateSIToFP(
+            rhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
+      }
+      return codeGenerator.getBuilder().CreateFCmpOLT(lhs, rhs, "lt");
+    }
+
     return codeGenerator.getBuilder().CreateICmpSLT(lhs, rhs, "lt");
   }
 
@@ -2123,6 +2289,24 @@ public:
   Value *codegen() {
     Value *lhs = relational_expression->codegen();
     Value *rhs = shift_expression->codegen();
+
+    bool use_float = false;
+
+    use_float |= (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
+    use_float |= (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
+
+    if (use_float) {
+      if (lhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
+        lhs = codeGenerator.getBuilder().CreateSIToFP(
+            lhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
+      }
+      if (rhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
+        rhs = codeGenerator.getBuilder().CreateSIToFP(
+            rhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
+      }
+      return codeGenerator.getBuilder().CreateFCmpOGT(lhs, rhs, "gt");
+    }
+
     return codeGenerator.getBuilder().CreateICmpSGT(lhs, rhs, "gt");
   }
 
@@ -2152,6 +2336,24 @@ public:
   Value *codegen() {
     Value *lhs = relational_expression->codegen();
     Value *rhs = shift_expression->codegen();
+
+    bool use_float = false;
+
+    use_float |= (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
+    use_float |= (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
+
+    if (use_float) {
+      if (lhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
+        lhs = codeGenerator.getBuilder().CreateSIToFP(
+            lhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
+      }
+      if (rhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
+        rhs = codeGenerator.getBuilder().CreateSIToFP(
+            rhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
+      }
+      return codeGenerator.getBuilder().CreateFCmpOLE(lhs, rhs, "le");
+    }
+
     return codeGenerator.getBuilder().CreateICmpSLE(lhs, rhs, "le");
   }
 
@@ -2181,6 +2383,24 @@ public:
   Value *codegen() {
     Value *lhs = relational_expression->codegen();
     Value *rhs = shift_expression->codegen();
+
+    bool use_float = false;
+
+    use_float |= (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
+    use_float |= (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
+
+    if (use_float) {
+      if (lhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
+        lhs = codeGenerator.getBuilder().CreateSIToFP(
+            lhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
+      }
+      if (rhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
+        rhs = codeGenerator.getBuilder().CreateSIToFP(
+            rhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
+      }
+      return codeGenerator.getBuilder().CreateFCmpOGE(lhs, rhs, "ge");
+    }
+
     return codeGenerator.getBuilder().CreateICmpSGE(lhs, rhs, "ge");
   }
 
@@ -2210,6 +2430,13 @@ public:
   Value *codegen() {
     Value *lhs = shift_expression->codegen();
     Value *rhs = additive_expression->codegen();
+    if (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID) {
+      throw std::runtime_error("lhs is not an integer");
+    }
+    if (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID) {
+      throw std::runtime_error("rhs is not an integer");
+    }
+
     return codeGenerator.getBuilder().CreateShl(lhs, rhs, "shl");
   }
 
@@ -2238,6 +2465,13 @@ public:
   Value *codegen() {
     Value *lhs = shift_expression->codegen();
     Value *rhs = additive_expression->codegen();
+    if (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID) {
+      throw std::runtime_error("lhs is not an integer");
+    }
+    if (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID) {
+      throw std::runtime_error("rhs is not an integer");
+    }
+
     return codeGenerator.getBuilder().CreateAShr(lhs, rhs, "ashr");
   }
 
@@ -2263,9 +2497,49 @@ public:
     return additive_expression->check_semantics() &&
            multiplicative_expression->check_semantics();
   }
+
+  m_Value get_value_if_possible() {
+    m_Value lhs = additive_expression->get_value_if_possible();
+    m_Value rhs = multiplicative_expression->get_value_if_possible();
+
+    if (lhs.type == ActualValueType::INTEGER &&
+        rhs.type == ActualValueType::INTEGER) {
+      return m_Value(lhs.i + rhs.i);
+    }
+
+    return m_Value(ActualValueType::NO_VALUE);
+  }
+
+  ASTNode *optimise() {
+    additive_expression = additive_expression->optimise();
+    multiplicative_expression = multiplicative_expression->optimise();
+    m_Value val = get_value_if_possible();
+    if (val.type != ActualValueType::NO_VALUE) {
+      return new IConstantNode(val.i);
+    }
+    return this;
+  }
+
   Value *codegen() {
     Value *lhs = additive_expression->codegen();
     Value *rhs = multiplicative_expression->codegen();
+    bool use_float = false;
+
+    use_float |= (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
+    use_float |= (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
+
+    if (use_float) {
+      if (lhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
+        lhs = codeGenerator.getBuilder().CreateSIToFP(
+            lhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
+      }
+      if (rhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
+        rhs = codeGenerator.getBuilder().CreateSIToFP(
+            rhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
+      }
+      return codeGenerator.getBuilder().CreateFAdd(lhs, rhs, "add");
+    }
+
     return codeGenerator.getBuilder().CreateAdd(lhs, rhs, "add");
   }
 
@@ -2295,6 +2569,23 @@ public:
   Value *codegen() {
     Value *lhs = additive_expression->codegen();
     Value *rhs = multiplicative_expression->codegen();
+    bool use_float = false;
+
+    use_float |= (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
+    use_float |= (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
+
+    if (use_float) {
+      if (lhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
+        lhs = codeGenerator.getBuilder().CreateSIToFP(
+            lhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
+      }
+      if (rhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
+        rhs = codeGenerator.getBuilder().CreateSIToFP(
+            rhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
+      }
+      return codeGenerator.getBuilder().CreateFSub(lhs, rhs, "sub");
+    }
+
     return codeGenerator.getBuilder().CreateSub(lhs, rhs, "sub");
   }
 
@@ -2324,6 +2615,24 @@ public:
   Value *codegen() {
     Value *lhs = multiplicative_expression->codegen();
     Value *rhs = cast_expression->codegen();
+
+    bool use_float = false;
+
+    use_float |= (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
+    use_float |= (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
+
+    if (use_float) {
+      if (lhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
+        lhs = codeGenerator.getBuilder().CreateSIToFP(
+            lhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
+      }
+      if (rhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
+        rhs = codeGenerator.getBuilder().CreateSIToFP(
+            rhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
+      }
+      return codeGenerator.getBuilder().CreateFMul(lhs, rhs, "mul");
+    }
+
     return codeGenerator.getBuilder().CreateMul(lhs, rhs, "mul");
   }
 
@@ -2353,6 +2662,23 @@ public:
   Value *codegen() {
     Value *lhs = multiplicative_expression->codegen();
     Value *rhs = cast_expression->codegen();
+    bool use_float = false;
+
+    use_float |= (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
+    use_float |= (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
+
+    if (use_float) {
+      if (lhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
+        lhs = codeGenerator.getBuilder().CreateSIToFP(
+            lhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
+      }
+      if (rhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
+        rhs = codeGenerator.getBuilder().CreateSIToFP(
+            rhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
+      }
+      return codeGenerator.getBuilder().CreateFDiv(lhs, rhs, "div");
+    }
+
     return codeGenerator.getBuilder().CreateSDiv(lhs, rhs, "div");
   }
 
@@ -2382,6 +2708,13 @@ public:
   Value *codegen() {
     Value *lhs = multiplicative_expression->codegen();
     Value *rhs = cast_expression->codegen();
+    if (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID) {
+      throw std::runtime_error("lhs is not an integer");
+    }
+    if (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID) {
+      throw std::runtime_error("rhs is not an integer");
+    }
+
     return codeGenerator.getBuilder().CreateSRem(lhs, rhs, "mod");
   }
 
@@ -2399,6 +2732,8 @@ public:
     result += "Integer:" + to_string(value) + "\n";
     return result;
   }
+
+  m_Value get_value_if_possible() { return m_Value(ValueType::INT, value); }
 
   Value *codegen() {
     return llvm::ConstantInt::get(codeGenerator.getContext(),

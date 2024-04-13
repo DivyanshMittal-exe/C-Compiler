@@ -29,6 +29,7 @@ struct m_Value {
   m_Value() : type(NO_VALUE), p(nullptr) {}
 
   ~m_Value() {}
+  m_Value(int i) : type(INTEGER), i(i) {}
 
   m_Value(const m_Value &other) : type(other.type) {
     switch (other.type) {

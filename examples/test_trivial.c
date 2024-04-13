@@ -26,10 +26,16 @@ int main() {
 
   // char *s = "hellosadasdsadsadsad";
   //
-  int k = 0;
-  printf("k = %d\n", k);
-  k = ver(5);
-  printf("k = %d\n", k);
+  //
+  // int a = 1;
+  // int b = 2;
+  // int k = a + b;
+
+  // float a = 1.0;
+  // float b = 2.0;
+  int a = 3;
+  int b = 2;
+  printf("%d = %d\n", a, a - b);
   // int j = 0;
   // s[j] = 'a';
   // char t = s[1];

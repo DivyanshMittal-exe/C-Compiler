@@ -57,7 +57,7 @@ ASTNode* root = NULL;
 %type <base_node> constant_expression expression
 %type <base_node> primary_expression postfix_expression argument_expression_list unary_expression  cast_expression multiplicative_expression additive_expression shift_expression relational_expression equality_expression and_expression exclusive_or_expression inclusive_or_expression logical_and_expression logical_or_expression conditional_expression assignment_expression
 %type <base_node> constant string identifier_list parameter_type_list parameter_list parameter_declaration abstract_declarator
-%type <base_node> pointer
+%type <base_node> pointer initializer_list
 
 %type <un_op> unary_operator
 %type <ass_op> assignment_operator
@@ -113,8 +113,8 @@ postfix_expression
 	| postfix_expression PTR_OP IDENTIFIER {$$ = new MemberAccessNode($1, new IdentifierNode($3));}
 	| postfix_expression INC_OP {$$ = new PostfixExpressionNode($1, UnaryOperator::INC_OP);}
 	| postfix_expression DEC_OP {$$ = new PostfixExpressionNode($1, UnaryOperator::DEC_OP);}
-	| '(' type_name ')' '{' initializer_list '}' { $$ = new NullPtrNode(); }
-	| '(' type_name ')' '{' initializer_list ',' '}' { $$ = new NullPtrNode(); }
+	| '(' type_name ')' '{' initializer_list '}' { $$ = $5; }
+	| '(' type_name ')' '{' initializer_list ',' '}' { $$ = $5; }
 	;
 
 
@@ -385,8 +385,8 @@ declarator
 direct_declarator
 	: IDENTIFIER {$$ = new IdentifierNode($1);}
 	| '(' declarator ')' { $$ = $2; }
-	| direct_declarator '[' ']' {$$ = new NullPtrNode();}
-	| direct_declarator '[' '*' ']' {$$ = new NullPtrNode();}
+	| direct_declarator '[' ']' {$$ = new ArrayDeclaratorNode($1, new NullPtrNode());}
+	| direct_declarator '[' '*' ']' {$$ = new ArrayDeclaratorNode($1, new NullPtrNode());} 
 	| direct_declarator '[' STATIC type_qualifier_list assignment_expression ']' {$$ = new NullPtrNode();}
 	| direct_declarator '[' STATIC assignment_expression ']' {$$ = new NullPtrNode();}
 	| direct_declarator '[' type_qualifier_list '*' ']' {$$ = new NullPtrNode();}
@@ -469,16 +469,16 @@ direct_abstract_declarator
 	;
 
 initializer
-	: '{' initializer_list '}' { $$ = new NullPtrNode(); }
-	| '{' initializer_list ',' '}' { $$ = new NullPtrNode(); }
+	: '{' initializer_list '}' { $$ = $2; }
+	| '{' initializer_list ',' '}' { $$ = $2; }
 	| assignment_expression { $$ = $1; }
 	;
 
 initializer_list
-	: designation initializer
-	| initializer
+	: designation initializer {$$ = new NullPtrNode();}
+	| initializer {$$ = new InitializerListNode(); $$->addChild($1);}
 	| initializer_list ',' designation initializer
-	| initializer_list ',' initializer
+	| initializer_list ',' initializer {$$ = $1; $$->addChild($3);}
 	;
 
 designation

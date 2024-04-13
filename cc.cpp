@@ -94,6 +94,9 @@ int main(int argc, char **argv) {
       exit(1);
     }
   }
+
+  root->optimise();
+
   root->codegen();
   root->dump_llvm(out_filename);
   exit(0);

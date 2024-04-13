@@ -1,8 +1,7 @@
 ; ModuleID = 'global_module'
 source_filename = "global_module"
 
-@str = global [8 x i8] c"k = %d\0A\00"
-@str.1 = global [8 x i8] c"k = %d\0A\00"
+@str = global [9 x i8] c"%d = %d\0A\00"
 
 define i32 @ver(i32 %0) {
 entry:
@@ -34,14 +33,15 @@ declare i32 @printf(i8*, ...)
 
 define i32 @main() {
 entry:
-  %k = alloca i32, align 4
-  store i32 0, i32* %k, align 4
-  %k1 = load i32, i32* %k, align 4
-  %printf_call = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([8 x i8], [8 x i8]* @str, i32 0, i32 0), i32 %k1)
-  %ver_call = call i32 @ver(i32 5)
-  store i32 %ver_call, i32* %k, align 4
-  %k2 = load i32, i32* %k, align 4
-  %printf_call3 = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([8 x i8], [8 x i8]* @str.1, i32 0, i32 0), i32 %k2)
+  %a = alloca i32, align 4
+  store i32 3, i32* %a, align 4
+  %b = alloca i32, align 4
+  store i32 2, i32* %b, align 4
+  %a1 = load i32, i32* %a, align 4
+  %a2 = load i32, i32* %a, align 4
+  %b3 = load i32, i32* %b, align 4
+  %sub = sub i32 %a2, %b3
+  %printf_call = call i32 (i8*, ...) @printf(i8* getelementptr inbounds ([9 x i8], [9 x i8]* @str, i32 0, i32 0), i32 %a1, i32 %sub)
   ret i32 0
   ret i32 0
 }
