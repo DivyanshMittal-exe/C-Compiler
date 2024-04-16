@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <iostream>
 #include <llvm-14/llvm/IR/BasicBlock.h>
+#include <llvm-14/llvm/IR/Constants.h>
 #include <llvm-14/llvm/IR/Function.h>
 #include <llvm-14/llvm/IR/IRBuilder.h>
 #include <llvm-14/llvm/IR/Instructions.h>
@@ -25,6 +26,8 @@ using llvm::Value;
 static ScoperStack scoperStack;
 static CodeGenerator codeGenerator;
 
+static map<string, llvm::BasicBlock *> labels;
+
 static llvm::Type *declaration_type = nullptr;
 static vector<llvm::Type *> function_params;
 
@@ -38,6 +41,8 @@ static bool am_i_initialising = false;
 
 static llvm::BasicBlock *loop_block = nullptr;
 static llvm::BasicBlock *merge_block = nullptr;
+
+static llvm::Type *array_type = nullptr;
 
 class ASTNode {
 public:
@@ -258,6 +263,7 @@ public:
     declaration_type = nullptr;
     function_params.clear();
     global_is_variadic = false;
+    labels.clear();
 
     string func_name = declarator->get().s;
 
@@ -415,6 +421,36 @@ public:
     return dumpParameters(this, {label, statement}, depth, false);
   }
 
+  Value *codegen() {
+
+    m_Value label_name = label->get();
+
+    llvm::Function *function =
+        codeGenerator.getBuilder().GetInsertBlock()->getParent();
+    llvm::BasicBlock *labelBlock = nullptr;
+
+    if (labels.find(label_name.s) == labels.end()) {
+      labelBlock = llvm::BasicBlock::Create(codeGenerator.getContext(), "label",
+                                            function);
+      labels[label_name.s] = labelBlock;
+    } else {
+      labelBlock = labels[label_name.s];
+    }
+    llvm::BasicBlock *mergeBlock =
+        llvm::BasicBlock::Create(codeGenerator.getContext(), "labelcont");
+
+    codeGenerator.getBuilder().CreateBr(labelBlock);
+    codeGenerator.getBuilder().SetInsertPoint(labelBlock);
+
+    statement->codegen();
+
+    codeGenerator.getBuilder().CreateBr(mergeBlock);
+    function->getBasicBlockList().push_back(mergeBlock);
+    codeGenerator.getBuilder().SetInsertPoint(mergeBlock);
+
+    return nullptr;
+  }
+
 private:
   ASTNode *label;
   ASTNode *statement;
@@ -480,35 +516,23 @@ public:
     return true;
   }
 
-  ASTNode *optimise() {
-    expression = expression->optimise();
-
-    if (expression->get_value_if_possible().type != NO_VALUE) {
-      m_Value val = expression->get_value_if_possible();
-      if (val.type == BOOL) {
-        if (val.b) {
-          return statement->optimise();
-        } else {
-          return else_statement->optimise();
-        }
-      }
-    }
-
-    statement = statement->optimise();
-    else_statement = else_statement->optimise();
-    return this;
-  }
-
   Value *codegen() {
     llvm::Value *conditionValue = expression->codegen();
     if (!conditionValue) {
       throw std::runtime_error("Condition value is null");
     }
-    if (conditionValue->getType()->getTypeID() != llvm::Type::IntegerTyID) {
-      conditionValue = codeGenerator.getBuilder().CreateIntCast(
-          conditionValue, llvm::Type::getInt1Ty(codeGenerator.getContext()),
-          true);
+
+    if (conditionValue->getType()->getTypeID() == llvm::Type::IntegerTyID) {
+      llvm::Value *zero = llvm::ConstantInt::get(conditionValue->getType(), 0);
+      conditionValue = codeGenerator.getBuilder().CreateICmpNE(
+          conditionValue, zero, "whilecond");
+    } else if (conditionValue->getType()->getTypeID() ==
+               llvm::Type::DoubleTyID) {
+      llvm::Value *zero = llvm::ConstantFP::get(conditionValue->getType(), 0);
+      conditionValue = codeGenerator.getBuilder().CreateFCmpONE(
+          conditionValue, zero, "whilecond");
     }
+
     llvm::Value *condition = codeGenerator.getBuilder().CreateICmpNE(
         conditionValue,
         llvm::ConstantInt::get(
@@ -686,6 +710,18 @@ public:
     codeGenerator.getBuilder().CreateBr(whileBlock);
     codeGenerator.getBuilder().SetInsertPoint(whileBlock);
     llvm::Value *conditionValue = expression->codegen();
+
+    if (conditionValue->getType()->getTypeID() == llvm::Type::IntegerTyID) {
+      llvm::Value *zero = llvm::ConstantInt::get(conditionValue->getType(), 0);
+      conditionValue = codeGenerator.getBuilder().CreateICmpNE(
+          conditionValue, zero, "whilecond");
+    } else if (conditionValue->getType()->getTypeID() ==
+               llvm::Type::DoubleTyID) {
+      llvm::Value *zero = llvm::ConstantFP::get(conditionValue->getType(), 0);
+      conditionValue = codeGenerator.getBuilder().CreateFCmpONE(
+          conditionValue, zero, "whilecond");
+    }
+
     codeGenerator.getBuilder().CreateCondBr(conditionValue, loopBlock,
                                             mergeBlock);
     function->getBasicBlockList().push_back(loopBlock);
@@ -767,6 +803,17 @@ public:
     codeGenerator.getBuilder().SetInsertPoint(loopBlock);
 
     llvm::Value *conditionValue = expression->codegen();
+
+    if (conditionValue->getType()->getTypeID() == llvm::Type::IntegerTyID) {
+      llvm::Value *zero = llvm::ConstantInt::get(conditionValue->getType(), 0);
+      conditionValue = codeGenerator.getBuilder().CreateICmpNE(
+          conditionValue, zero, "dowhilecond");
+    } else if (conditionValue->getType()->getTypeID() ==
+               llvm::Type::DoubleTyID) {
+      llvm::Value *zero = llvm::ConstantFP::get(conditionValue->getType(), 0);
+      conditionValue = codeGenerator.getBuilder().CreateFCmpONE(
+          conditionValue, zero, "dowhilecond");
+    }
 
     // Create the loop condition branch instruction
     codeGenerator.getBuilder().CreateCondBr(conditionValue, loopBlock,
@@ -855,6 +902,17 @@ public:
     // Generate LLVM IR code for the loop condition check
     llvm::Value *conditionValue = expression2->codegen();
 
+    if (conditionValue->getType()->getTypeID() == llvm::Type::IntegerTyID) {
+      llvm::Value *zero = llvm::ConstantInt::get(conditionValue->getType(), 0);
+      conditionValue = codeGenerator.getBuilder().CreateICmpNE(
+          conditionValue, zero, "whilecond");
+    } else if (conditionValue->getType()->getTypeID() ==
+               llvm::Type::DoubleTyID) {
+      llvm::Value *zero = llvm::ConstantFP::get(conditionValue->getType(), 0);
+      conditionValue = codeGenerator.getBuilder().CreateFCmpONE(
+          conditionValue, zero, "whilecond");
+    }
+
     // Create the loop condition branch instruction
     codeGenerator.getBuilder().CreateCondBr(conditionValue, loopBodyBlock,
                                             mergeBlock);
@@ -910,6 +968,26 @@ public:
 
   string dump_ast(int depth = 0) const {
     return dumpParameters(this, {identifier}, depth, false);
+  }
+
+  Value *codegen() {
+
+    m_Value label = identifier->get();
+
+    llvm::Function *function =
+        codeGenerator.getBuilder().GetInsertBlock()->getParent();
+    llvm::BasicBlock *labelBlock = nullptr;
+
+    if (labels.find(label.s) == labels.end()) {
+      labelBlock = llvm::BasicBlock::Create(codeGenerator.getContext(), "label",
+                                            function);
+      labels[label.s] = labelBlock;
+    } else {
+      labelBlock = labels[label.s];
+    }
+
+    codeGenerator.getBuilder().CreateBr(labelBlock);
+    return nullptr;
   }
 
 private:
@@ -1055,14 +1133,20 @@ public:
 
   Value *codegen() {
     llvm::Type *old_type = declaration_type;
+    array_type = nullptr;
     declarator->modifyDeclarationType();
-    llvm::Type *declaration_type_copy = declaration_type;
-    declaration_type = old_type;
     string name = declarator->get().s;
 
     am_i_initialising = true;
     declarator->codegen();
     am_i_initialising = false;
+
+    llvm::Type *declaration_type_copy = declaration_type;
+    declaration_type = old_type;
+
+    if (array_type != nullptr) {
+      declaration_type_copy = array_type;
+    }
 
     if (codeGenerator.isFunctionDefined(declarator->get().s)) {
       return nullptr;
@@ -1071,7 +1155,7 @@ public:
     llvm::Value *val = nullptr;
     if (initializer->getNodeType() != NodeType::Unimplemented) {
       val = initializer->codegen();
-    } else {
+    } else if (array_type == nullptr) {
       val = llvm::Constant::getNullValue(declaration_type_copy);
     }
 
@@ -1079,7 +1163,8 @@ public:
 
     llvm::AllocaInst *alloca = codeGenerator.getBuilder().CreateAlloca(
         declaration_type_copy, nullptr, declarator->get().s);
-    codeGenerator.getBuilder().CreateStore(val, alloca);
+    if (val)
+      codeGenerator.getBuilder().CreateStore(val, alloca);
     codeGenerator.getsymbolTable()[declarator->get().s] = alloca;
     return alloca;
   }
@@ -1202,11 +1287,18 @@ public:
                           depth, false);
   }
 
+  void modifyDeclarationType() { direct_declarator->modifyDeclarationType(); }
+
+  m_Value get() { return direct_declarator->get(); }
+
   Value *codegen() {
+
+    direct_declarator->codegen();
 
     Value *array_size = nullptr;
     if (assignment_expression->getNodeType() == NodeType::Unimplemented) {
-
+      array_size = llvm::ConstantInt::get(codeGenerator.getContext(),
+                                          llvm::APInt(32, 0, true));
     } else {
       array_size = assignment_expression->codegen();
     }
@@ -1215,17 +1307,28 @@ public:
       array_size = codeGenerator.getBuilder().CreateIntCast(
           array_size, llvm::Type::getInt32Ty(codeGenerator.getContext()), true);
     }
-    llvm::Type *element_type = declaration_type;
 
     llvm::ConstantInt *arraySizeInt =
         llvm::dyn_cast<llvm::ConstantInt>(array_size);
     uint64_t array_size_val = arraySizeInt->getZExtValue();
 
-    llvm::Type *array_type = llvm::ArrayType::get(element_type, array_size_val);
-    llvm::AllocaInst *alloca = codeGenerator.getBuilder().CreateAlloca(
-        array_type, nullptr, direct_declarator->get().s);
-    codeGenerator.getsymbolTable()[direct_declarator->get().s] = alloca;
+    if (array_type == nullptr) {
+      array_type = declaration_type;
+    }
+
+    array_type = llvm::ArrayType::get(array_type, array_size_val);
+
     return nullptr;
+    /**/
+    /* llvm::Type *array_type = llvm::ArrayType::get(element_type,
+     * array_size_val); */
+    /**/
+    /* arrat_type = llvm::PointerType::get(array_type, 0); */
+
+    /* llvm::AllocaInst *alloca = codeGenerator.getBuilder().CreateAlloca( */
+    /* array_type, nullptr, direct_declarator->get().s); */
+    /* codeGenerator.getsymbolTable()[direct_declarator->get().s] = alloca; */
+    /* return alloca; */
   }
 
 private:
@@ -1495,16 +1598,16 @@ public:
     Value *lhsAddr = unary_expression->codegen();
     get_as_lvalue = false;
 
-    cout << "rhsValue type is " << rhsValue->getType()->getTypeID() << endl;
-    cout << "lhsAddr type is "
-         << lhsAddr->getType()->getPointerElementType()->getTypeID() << endl;
-
-    if (rhsValue->getType() != lhsAddr->getType()->getPointerElementType()) {
-      // Perform type casting of rhsValue to match the type of lhsAddr
-      cout << "Casting rhsValue to match the type of lhsAddr" << endl;
-      rhsValue = codeGenerator.getBuilder().CreateBitOrPointerCast(
-          rhsValue, lhsAddr->getType()->getPointerElementType());
-    }
+    /* if (lhsAddr->getType()->isPointerTy()) { */
+    /**/
+    /*   if (rhsValue->getType() != lhsAddr->getType()->getPointerElementType())
+     * { */
+    /*     // Perform type casting of rhsValue to match the type of lhsAddr */
+    /*     cout << "Casting rhsValue to match the type of lhsAddr" << endl; */
+    /*     rhsValue = codeGenerator.getBuilder().CreateBitOrPointerCast( */
+    /*         rhsValue, lhsAddr->getType()->getPointerElementType()); */
+    /*   } */
+    /* } */
 
     // Perform the assignment based on the operator
     switch (assOp) {
@@ -1607,21 +1710,54 @@ public:
 
     cout << "Array access node" << endl;
 
-    Value *postFixValue = postfix_expression->codegen();
-
     bool prev_get_as_lvalue = get_as_lvalue;
+    get_as_lvalue = true;
+    Value *postFixValue = postfix_expression->codegen();
     get_as_lvalue = false;
     Value *indexValue = expression->codegen();
     get_as_lvalue = prev_get_as_lvalue;
 
-    if (postFixValue->getType()->getTypeID() != llvm::Type::PointerTyID) {
+    if (!postFixValue->getType()->isPointerTy()) {
       throw std::runtime_error("Array access on non-pointer type");
     }
 
     llvm::Type *element_type = postFixValue->getType()->getPointerElementType();
 
-    llvm::Value *val_to_ret = codeGenerator.getBuilder().CreateGEP(
-        element_type, postFixValue, {indexValue});
+    if (llvm::isa<llvm::ArrayType>(element_type)) {
+
+      llvm::Value *zero_val = llvm::ConstantInt::get(codeGenerator.getContext(),
+                                                     llvm::APInt(32, 0));
+
+      llvm::Value *val_to_ret = codeGenerator.getBuilder().CreateGEP(
+          element_type, postFixValue, {zero_val, indexValue});
+
+      cout << "Jeeelo" << endl;
+
+      if (get_as_lvalue)
+        return val_to_ret;
+
+      return codeGenerator.getBuilder().CreateLoad(
+          element_type->getArrayElementType(), val_to_ret);
+
+    } else {
+
+      llvm::Value *load_pointer =
+          codeGenerator.getBuilder().CreateLoad(element_type, postFixValue);
+
+      llvm::Type *load_pointer_type =
+          load_pointer->getType()->getPointerElementType();
+
+      llvm::Value *zero_val = llvm::ConstantInt::get(codeGenerator.getContext(),
+                                                     llvm::APInt(32, 0));
+      llvm::Value *val_to_ret = codeGenerator.getBuilder().CreateGEP(
+          load_pointer_type, load_pointer, {indexValue});
+
+      if (get_as_lvalue)
+        return val_to_ret;
+
+      return codeGenerator.getBuilder().CreateLoad(load_pointer_type,
+                                                   val_to_ret);
+    }
 
     /* llvm::Value *zero = llvm::ConstantInt::get( */
     /*     llvm::Type::getInt32Ty(codeGenerator.getContext()), 0); */
@@ -1630,7 +1766,8 @@ public:
     /* llvm::Value *val_to_ret = */
     /* codeGenerator.getBuilder().CreateGEP(element_type, postFixValue,
      * indices); */
-    return codeGenerator.getBuilder().CreateLoad(element_type, val_to_ret);
+    /* return codeGenerator.getBuilder().CreateLoad(element_type, val_to_ret);
+     */
   }
 
 private:
@@ -1755,7 +1892,7 @@ public:
 
     case UnaryOperator::MUL_OP:
       return codeGenerator.getBuilder().CreateLoad(
-          val->getType()->getPointerElementType(), val);
+          val->getType()->getPointerElementType(), val, "deref");
     case UnaryOperator::PLUS:
       return val;
     case UnaryOperator::MINUS:
@@ -2510,16 +2647,6 @@ public:
     return m_Value(ActualValueType::NO_VALUE);
   }
 
-  ASTNode *optimise() {
-    additive_expression = additive_expression->optimise();
-    multiplicative_expression = multiplicative_expression->optimise();
-    m_Value val = get_value_if_possible();
-    if (val.type != ActualValueType::NO_VALUE) {
-      return new IConstantNode(val.i);
-    }
-    return this;
-  }
-
   Value *codegen() {
     Value *lhs = additive_expression->codegen();
     Value *rhs = multiplicative_expression->codegen();
@@ -2733,8 +2860,6 @@ public:
     return result;
   }
 
-  m_Value get_value_if_possible() { return m_Value(ValueType::INT, value); }
-
   Value *codegen() {
     return llvm::ConstantInt::get(codeGenerator.getContext(),
                                   llvm::APInt(32, value));
@@ -2807,4 +2932,4 @@ private:
   string value;
 };
 
-#endif // AST_HP
+#endif // AST

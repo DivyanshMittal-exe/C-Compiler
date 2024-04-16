@@ -35,7 +35,7 @@ int main() {
   // float b = 2.0;
   int a = 3;
   int b = 2;
-  printf("%d = %d\n", a, a - b);
+  printf("a = %d\n", a);
   // int j = 0;
   // s[j] = 'a';
   // char t = s[1];
@@ -55,5 +55,5 @@ int main() {
   //   x = x + 1;
   // }
 
-  return 0;
+  return 1;
 }

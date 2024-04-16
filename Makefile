@@ -11,7 +11,7 @@ clean:
 	rm -f c.tab.cpp c.tab.hpp c.lex.cpp cc c.output
 
 run_llvm: clean cc
-	./cc examples/test_trivial.c --skip-semantics --dump-ast
+	./cc examples/test_trivial.c --dump-ast --skip-semantics
 	llc -filetype=obj a.ll -o a.o
 	clang a.o -o a.out -pie
 	./a.out
@@ -38,4 +38,20 @@ run_extra: clean cc
    done
 
 
+unittest:
+	python3 stress_test.py
 
+run_stress: clean cc 
+	$(eval stress_number := $(word 2,$(MAKECMDGOALS)))
+	$(eval padded_number := $(shell printf "%05d" $(stress_number)))
+	$(eval c_file := ./stress/$(padded_number).c)
+	echo $(c_file)
+	./cc $(c_file) --dump-ast --skip-semantics
+	llc -filetype=obj a.ll -o a.o
+	clang a.o -o a.out -pie
+	./a.out
+
+stress%: run_stress
+	@true
+
+%: ;
