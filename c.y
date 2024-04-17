@@ -198,12 +198,12 @@ inclusive_or_expression
 
 logical_and_expression
 	: inclusive_or_expression { $$ = $1; }
-	| logical_and_expression AND_OP inclusive_or_expression { $$ = new LogicalAndExpressionNode($1, $3); }
+	| logical_and_expression AND_OP inclusive_or_expression { $$ = new ConditionalExpressionNode($1, $3, new IConstantNode(0) ); }
 	;
 
 logical_or_expression
 	: logical_and_expression { $$ = $1; }
-	| logical_or_expression OR_OP logical_and_expression { $$ = new LogicalOrExpressionNode($1, $3); }
+	| logical_or_expression OR_OP logical_and_expression { $$ = new ConditionalExpressionNode($1, new IConstantNode(1), $3); }
 	;
 
 conditional_expression
@@ -542,7 +542,7 @@ selection_statement
 
 iteration_statement
 	: WHILE '(' expression ')' statement { $$ = new WhileStatementNode($3, $5); }
-	| DO statement WHILE '(' expression ')' ';' { $$ = new DoWhileStatementNode($2, $5); }
+	| DO statement WHILE '(' expression ')' ';' { $$ = new DoWhileStatementNode($5, $2); }
 	| FOR '(' expression_statement expression_statement ')' statement { $$ = new ForStatementNode($3, $4, new NullPtrNode(), $6); }
 	| FOR '(' expression_statement expression_statement expression ')' statement { $$ = new ForStatementNode($3, $4, $5, $7); }
 	| FOR '(' declaration expression_statement ')' statement { $$ = new ForStatementNode($3, $4, new NullPtrNode(), $6); }

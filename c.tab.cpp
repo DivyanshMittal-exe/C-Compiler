@@ -2385,7 +2385,7 @@ yyreduce:
 
   case 70: /* logical_and_expression: logical_and_expression AND_OP inclusive_or_expression  */
 #line 201 "c.y"
-                                                                { (yyval.base_node) = new LogicalAndExpressionNode((yyvsp[-2].base_node), (yyvsp[0].base_node)); }
+                                                                { (yyval.base_node) = new ConditionalExpressionNode((yyvsp[-2].base_node), (yyvsp[0].base_node), new IConstantNode(0) ); }
 #line 2390 "c.tab.cpp"
     break;
 
@@ -2397,7 +2397,7 @@ yyreduce:
 
   case 72: /* logical_or_expression: logical_or_expression OR_OP logical_and_expression  */
 #line 206 "c.y"
-                                                             { (yyval.base_node) = new LogicalOrExpressionNode((yyvsp[-2].base_node), (yyvsp[0].base_node)); }
+                                                             { (yyval.base_node) = new ConditionalExpressionNode((yyvsp[-2].base_node), new IConstantNode(1), (yyvsp[0].base_node)); }
 #line 2402 "c.tab.cpp"
     break;
 
@@ -3195,7 +3195,7 @@ yyreduce:
 
   case 258: /* iteration_statement: DO statement WHILE '(' expression ')' ';'  */
 #line 545 "c.y"
-                                                    { (yyval.base_node) = new DoWhileStatementNode((yyvsp[-5].base_node), (yyvsp[-2].base_node)); }
+                                                    { (yyval.base_node) = new DoWhileStatementNode((yyvsp[-2].base_node), (yyvsp[-5].base_node)); }
 #line 3200 "c.tab.cpp"
     break;
 

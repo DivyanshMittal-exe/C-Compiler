@@ -6,6 +6,7 @@
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
 #include <iostream>
+#include <llvm-14/llvm/IR/DataLayout.h>
 #include <llvm-14/llvm/IR/Function.h>
 #include <llvm-14/llvm/IR/Value.h>
 #include <map>
@@ -13,13 +14,18 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
+#include "AST_enums.hpp"
+#include "scoper.h"
 using namespace std;
 
 class m_Context {
 public:
   bool is_global;
+  bool clean_for_optimisation = true;
   map<string, llvm::Value *> variables;
   map<string, llvm::Value *> carry_over_variables;
+  
+  map<string, m_Value> values;
 
   m_Context() { is_global = false; }
   m_Context(const m_Context &other) {
@@ -88,10 +94,17 @@ public:
     return global_module->getFunction(name);
   }
 
+  llvm::DataLayout getDataLayout() {
+    return llvm::DataLayout(global_module.get());
+  }
+
   llvm::LLVMContext &getContext() { return *contexts.back(); }
 
   void pushContext() {
     m_Context &current_symbol_table = *symbol_tables.back();
+
+    current_symbol_table.clean_for_optimisation = false;
+
     unique_ptr<m_Context> new_symbol_table =
         make_unique<m_Context>(current_symbol_table);
     symbol_tables.push_back(std::move(new_symbol_table));
@@ -137,7 +150,7 @@ static llvm::Type *getCurrType(SpecifierEnum specifier,
     curr_type = llvm::Type::getInt64Ty(llvmContext);
     break;
   case SpecifierEnum::FLOAT:
-    curr_type = llvm::Type::getFloatTy(llvmContext);
+    curr_type = llvm::Type::getDoubleTy(llvmContext);
     break;
   case SpecifierEnum::DOUBLE:
     curr_type = llvm::Type::getDoubleTy(llvmContext);
@@ -145,7 +158,9 @@ static llvm::Type *getCurrType(SpecifierEnum specifier,
   case SpecifierEnum::BOOL:
     curr_type = llvm::Type::getInt1Ty(llvmContext);
     break;
-
+  case SpecifierEnum::UNSIGNED:
+    curr_type = llvm::Type::getInt32Ty(llvmContext);
+    break;
   default:
     curr_type = nullptr;
   }

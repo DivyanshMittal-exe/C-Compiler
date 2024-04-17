@@ -8,6 +8,7 @@
 #include <iostream>
 #include <llvm-14/llvm/IR/BasicBlock.h>
 #include <llvm-14/llvm/IR/Constants.h>
+#include <llvm-14/llvm/IR/DerivedTypes.h>
 #include <llvm-14/llvm/IR/Function.h>
 #include <llvm-14/llvm/IR/IRBuilder.h>
 #include <llvm-14/llvm/IR/Instructions.h>
@@ -43,6 +44,126 @@ static llvm::BasicBlock *loop_block = nullptr;
 static llvm::BasicBlock *merge_block = nullptr;
 
 static llvm::Type *array_type = nullptr;
+
+static bool is_declaration_global = false;
+
+static SpecifierEnum dec_type_for_optimisation;
+
+
+static void make_bool(llvm::Value *&conditionValue) {
+
+  if (conditionValue->getType()->getTypeID() == llvm::Type::IntegerTyID) {
+    llvm::Value *zero = llvm::ConstantInt::get(conditionValue->getType(), 0);
+    conditionValue = codeGenerator.getBuilder().CreateICmpNE(conditionValue,
+                                                             zero, "make_bool");
+  } else if (conditionValue->getType()->getTypeID() == llvm::Type::DoubleTyID) {
+    llvm::Value *zero = llvm::ConstantFP::get(conditionValue->getType(), 0);
+    conditionValue = codeGenerator.getBuilder().CreateFCmpONE(
+        conditionValue, zero, "make_bool");
+  }
+}
+
+static void make_store_compatible(llvm::Value *&lhsAddr,
+                                  llvm::Value *&rhsValue) {
+
+  if (lhsAddr->getType()->isPointerTy()) {
+
+    if (rhsValue->getType()->isIntegerTy() and
+        lhsAddr->getType()->getPointerElementType()->isIntegerTy()) {
+      unsigned lhsSize =
+          lhsAddr->getType()->getPointerElementType()->getPrimitiveSizeInBits();
+      unsigned rhsSize = rhsValue->getType()->getIntegerBitWidth();
+      if (lhsSize != rhsSize) {
+        // Perform size adjustment if types are integers but of different
+        // sizes
+        if (lhsSize < rhsSize) {
+          // Truncate rhsValue
+          rhsValue = codeGenerator.getBuilder().CreateTrunc(
+              rhsValue, llvm::IntegerType::get(lhsAddr->getContext(), lhsSize));
+        } else {
+          // Extend rhsValue
+          rhsValue = codeGenerator.getBuilder().CreateZExt(
+              rhsValue,
+              llvm ::IntegerType::get(lhsAddr->getContext(), lhsSize));
+        }
+        cout << "Adjusted RHSValue size to match the type of lhsAddr" << endl;
+      }
+    }else if(lhsAddr->getType()->getPointerElementType()->isDoubleTy() and
+           rhsValue->getType()->isIntegerTy()){
+      rhsValue = codeGenerator.getBuilder().CreateSIToFP(rhsValue, lhsAddr->getType()->getPointerElementType());
+    }else if(lhsAddr->getType()->getPointerElementType()->isIntegerTy() and
+         rhsValue->getType()->isDoubleTy()){
+      rhsValue = codeGenerator.getBuilder().CreateFPToSI(rhsValue, lhsAddr->getType()->getPointerElementType());
+    }
+  }
+
+  if (lhsAddr->getType()->isPointerTy()) {
+    if (rhsValue->getType() != lhsAddr->getType()->getPointerElementType()) {
+      // Perform type casting of rhsValue to match the type of lhsAddr
+      cout << "Casting rhsValue to match the type of lhsAddr" << endl;
+      rhsValue = codeGenerator.getBuilder().CreateBitOrPointerCast(
+          rhsValue, lhsAddr->getType()->getPointerElementType());
+    }
+  }
+}
+
+static void make_lhs_rhs_compatible(llvm::Value *&lhs, llvm::Value *&rhs) {
+
+  bool use_float = false;
+
+  use_float |= (lhs->getType()->getTypeID() == llvm::Type::DoubleTyID);
+  use_float |= (rhs->getType()->getTypeID() == llvm::Type::DoubleTyID);
+
+  if (use_float) {
+    if (lhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
+      lhs = codeGenerator.getBuilder().CreateSIToFP(
+          lhs, llvm::Type::getDoubleTy(codeGenerator.getContext()), "lhscast");
+    }
+    if (rhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
+      rhs = codeGenerator.getBuilder().CreateSIToFP(
+          rhs, llvm::Type::getDoubleTy(codeGenerator.getContext()), "rhscast");
+    }
+    return;
+  }
+
+  llvm::IntegerType *lhs_int_type =
+      llvm::dyn_cast<llvm::IntegerType>(lhs->getType());
+  llvm::IntegerType *rhs_int_type =
+      llvm::dyn_cast<llvm::IntegerType>(rhs->getType());
+
+  if (lhs_int_type && rhs_int_type &&
+      lhs_int_type->getBitWidth() != rhs_int_type->getBitWidth()) {
+
+    llvm::Type *extendedType =
+        lhs_int_type->getBitWidth() > rhs_int_type->getBitWidth()
+            ? lhs_int_type
+            : rhs_int_type;
+    if (lhs_int_type->getBitWidth() < rhs_int_type->getBitWidth()) {
+
+      if (lhs_int_type->getBitWidth() == 1) {
+        lhs =
+            codeGenerator.getBuilder().CreateZExt(lhs, extendedType, "lhsext");
+      } else {
+
+        lhs =
+            codeGenerator.getBuilder().CreateSExt(lhs, extendedType, "lhsext");
+      }
+
+    } else {
+      if (rhs_int_type->getBitWidth() == 1) {
+        rhs =
+            codeGenerator.getBuilder().CreateZExt(rhs, extendedType, "rhsext");
+      } else {
+        rhs =
+            codeGenerator.getBuilder().CreateSExt(rhs, extendedType, "rhsext");
+      }
+    }
+  }
+  if (lhs->getType() != rhs->getType()) {
+    rhs =
+        codeGenerator.getBuilder().CreateBitOrPointerCast(rhs, lhs->getType());
+  }
+}
 
 class ASTNode {
 public:
@@ -199,6 +320,11 @@ public:
   Value *codegen() {
 
     for (auto child : children) {
+      declaration_type = nullptr;
+      function_params.clear();
+      global_is_variadic = false;
+      labels.clear();
+      is_declaration_global = true;
       child->codegen();
     }
 
@@ -257,6 +383,12 @@ public:
     return true;
   }
 
+
+  ASTNode* optimise() {
+    compound_statement = compound_statement->optimise();
+    return this;
+  }
+
   // Got rid of the functions map here, and used the module insteads
 
   Value *codegen() {
@@ -264,6 +396,7 @@ public:
     function_params.clear();
     global_is_variadic = false;
     labels.clear();
+    is_declaration_global = false;
 
     string func_name = declarator->get().s;
 
@@ -308,8 +441,14 @@ public:
 
     codeGenerator.popContext();
 
-    codeGenerator.getBuilder().CreateRet(
-        llvm::Constant::getNullValue(func_ret_type));
+    if (func_ret_type->isVoidTy()) {
+      // If func_ret_type is void, generate a return void instruction
+      codeGenerator.getBuilder().CreateRetVoid();
+    } else {
+      // Otherwise, generate a return instruction with null value
+      codeGenerator.getBuilder().CreateRet(
+          llvm::Constant::getNullValue(func_ret_type));
+    }
 
     return nullptr;
   }
@@ -332,6 +471,14 @@ public:
   bool check_semantics() {
     throw std::runtime_error(
         "Checking Semantics for declaration specifiers does not make sense");
+  }
+
+
+  ASTNode* optimise(){
+    for(auto child: children){
+child->optimise();
+    }
+    return this;;
   }
 
   llvm::Type *getValueType() {
@@ -365,6 +512,12 @@ public:
         "Checking Semantics for specifiers does not make sense");
   }
 
+  ASTNode* optimise(){
+    switch (specifier) {
+     case SpecifierEnum::SHORT
+    }
+  }
+
   llvm::Type *getValueType() {
     llvm::Type *val = getCurrType(specifier, codeGenerator.getContext());
 
@@ -389,6 +542,13 @@ public:
 
   string dump_ast(int depth = 0) const {
     return dumpParameters(this, children, depth, true);
+  }
+
+  ASTNode* optimise() {
+    for (auto &child : children) {
+      child = child->optimise();
+    }
+    return this;
   }
 
   bool check_semantics() {
@@ -481,7 +641,7 @@ public:
     return dumpParameters(this, {statement}, depth, false);
   }
 
-private:
+public:
   ASTNode *statement;
 };
 
@@ -522,16 +682,7 @@ public:
       throw std::runtime_error("Condition value is null");
     }
 
-    if (conditionValue->getType()->getTypeID() == llvm::Type::IntegerTyID) {
-      llvm::Value *zero = llvm::ConstantInt::get(conditionValue->getType(), 0);
-      conditionValue = codeGenerator.getBuilder().CreateICmpNE(
-          conditionValue, zero, "whilecond");
-    } else if (conditionValue->getType()->getTypeID() ==
-               llvm::Type::DoubleTyID) {
-      llvm::Value *zero = llvm::ConstantFP::get(conditionValue->getType(), 0);
-      conditionValue = codeGenerator.getBuilder().CreateFCmpONE(
-          conditionValue, zero, "whilecond");
-    }
+    make_bool(conditionValue);
 
     llvm::Value *condition = codeGenerator.getBuilder().CreateICmpNE(
         conditionValue,
@@ -641,11 +792,16 @@ public:
       llvm::BasicBlock *caseBlock = llvm::BasicBlock::Create(
           codeGenerator.getContext(), "case" + std::to_string(i), function);
       codeGenerator.getBuilder().SetInsertPoint(caseBlock);
-      statements[i]->codegen();
-      codeGenerator.getBuilder().CreateBr(mergeBlock);
 
       CaseLabelStatementNode *caseNode =
           dynamic_cast<CaseLabelStatementNode *>(statements[i]);
+
+      if (!caseNode) {
+        throw std::runtime_error("Case node is null");
+      }
+
+      caseNode->statement->codegen();
+      codeGenerator.getBuilder().CreateBr(mergeBlock);
 
       llvm::ConstantInt *caseValue = llvm::dyn_cast<llvm::ConstantInt>(
           caseNode->constant_expression->codegen());
@@ -657,7 +813,11 @@ public:
     if (defaultCase != nullptr) {
       function->getBasicBlockList().push_back(defaultBlock);
       codeGenerator.getBuilder().SetInsertPoint(defaultBlock);
-      defaultCase->codegen();
+
+      DefaultLabelStatementNode *defaultNode =
+          dynamic_cast<DefaultLabelStatementNode *>(defaultCase);
+
+      defaultNode->statement->codegen();
       codeGenerator.getBuilder().CreateBr(mergeBlock);
     }
 
@@ -711,16 +871,7 @@ public:
     codeGenerator.getBuilder().SetInsertPoint(whileBlock);
     llvm::Value *conditionValue = expression->codegen();
 
-    if (conditionValue->getType()->getTypeID() == llvm::Type::IntegerTyID) {
-      llvm::Value *zero = llvm::ConstantInt::get(conditionValue->getType(), 0);
-      conditionValue = codeGenerator.getBuilder().CreateICmpNE(
-          conditionValue, zero, "whilecond");
-    } else if (conditionValue->getType()->getTypeID() ==
-               llvm::Type::DoubleTyID) {
-      llvm::Value *zero = llvm::ConstantFP::get(conditionValue->getType(), 0);
-      conditionValue = codeGenerator.getBuilder().CreateFCmpONE(
-          conditionValue, zero, "whilecond");
-    }
+    make_bool(conditionValue);
 
     codeGenerator.getBuilder().CreateCondBr(conditionValue, loopBlock,
                                             mergeBlock);
@@ -804,19 +955,9 @@ public:
 
     llvm::Value *conditionValue = expression->codegen();
 
-    if (conditionValue->getType()->getTypeID() == llvm::Type::IntegerTyID) {
-      llvm::Value *zero = llvm::ConstantInt::get(conditionValue->getType(), 0);
-      conditionValue = codeGenerator.getBuilder().CreateICmpNE(
-          conditionValue, zero, "dowhilecond");
-    } else if (conditionValue->getType()->getTypeID() ==
-               llvm::Type::DoubleTyID) {
-      llvm::Value *zero = llvm::ConstantFP::get(conditionValue->getType(), 0);
-      conditionValue = codeGenerator.getBuilder().CreateFCmpONE(
-          conditionValue, zero, "dowhilecond");
-    }
-
+    make_bool(conditionValue);
     // Create the loop condition branch instruction
-    codeGenerator.getBuilder().CreateCondBr(conditionValue, loopBlock,
+    codeGenerator.getBuilder().CreateCondBr(conditionValue, doBlock,
                                             mergeBlock);
 
     // Add merge block to the function
@@ -892,7 +1033,11 @@ public:
 
     codeGenerator.pushContext();
     // Generate LLVM IR code for the initialization expression
-    expression1->codegen();
+
+    if (expression1->getNodeType() != NodeType::Unimplemented) {
+      expression1->codegen();
+    }
+
     codeGenerator.pushContext();
 
     // Jump to the loop condition block
@@ -900,19 +1045,14 @@ public:
     codeGenerator.getBuilder().SetInsertPoint(loopConditionBlock);
 
     // Generate LLVM IR code for the loop condition check
-    llvm::Value *conditionValue = expression2->codegen();
+    // The default value is true
+    llvm::Value *conditionValue =
+        llvm::ConstantInt::get(codeGenerator.getContext(), llvm::APInt(1, 1));
 
-    if (conditionValue->getType()->getTypeID() == llvm::Type::IntegerTyID) {
-      llvm::Value *zero = llvm::ConstantInt::get(conditionValue->getType(), 0);
-      conditionValue = codeGenerator.getBuilder().CreateICmpNE(
-          conditionValue, zero, "whilecond");
-    } else if (conditionValue->getType()->getTypeID() ==
-               llvm::Type::DoubleTyID) {
-      llvm::Value *zero = llvm::ConstantFP::get(conditionValue->getType(), 0);
-      conditionValue = codeGenerator.getBuilder().CreateFCmpONE(
-          conditionValue, zero, "whilecond");
+    if (expression2->getNodeType() != NodeType::Unimplemented) {
+      conditionValue = expression2->codegen();
     }
-
+    make_bool(conditionValue);
     // Create the loop condition branch instruction
     codeGenerator.getBuilder().CreateCondBr(conditionValue, loopBodyBlock,
                                             mergeBlock);
@@ -925,7 +1065,7 @@ public:
 
     llvm::BasicBlock *old_loop_block = loop_block;
     llvm::BasicBlock *old_merge_block = merge_block;
-    loop_block = loopConditionBlock;
+    loop_block = loopIterBlock;
     merge_block = mergeBlock;
     statement->codegen();
     loop_block = old_loop_block;
@@ -939,8 +1079,10 @@ public:
     codeGenerator.getBuilder().SetInsertPoint(loopIterBlock);
 
     // Generate LLVM IR code for the iteration expression
-    expression3->codegen();
-
+    //
+    if (expression3->getNodeType() != NodeType::Unimplemented) {
+      expression3->codegen();
+    }
     // Branch back to the loop condition block
     codeGenerator.getBuilder().CreateBr(loopConditionBlock);
 
@@ -1022,7 +1164,7 @@ public:
   }
 
   Value *codegen() {
-    if (loop_block == nullptr) {
+    if (merge_block == nullptr) {
       throw std::runtime_error("Break statement outside of loop");
     }
 
@@ -1045,12 +1187,19 @@ public:
   Value *codegen() {
     if (expression->getNodeType() != NodeType::Unimplemented) {
 
-      llvm::Value *val_to_ret =
-          codeGenerator.getBuilder().CreateRet(expression->codegen());
+      llvm::Value *ret_val = expression->codegen();
 
-      cout << "Returning value from function" << endl;
-      cout << "Value returned is " << val_to_ret->getType()->getTypeID()
-           << endl;
+      llvm::Function *function =
+          codeGenerator.getBuilder().GetInsertBlock()->getParent();
+
+      llvm::Type *ret_type = function->getReturnType();
+
+      llvm::Value *random_alloca = codeGenerator.getBuilder().CreateAlloca(
+          ret_type, nullptr, "return_alloca");
+
+      make_store_compatible(random_alloca, ret_val);
+
+      llvm::Value *val_to_ret = codeGenerator.getBuilder().CreateRet(ret_val);
 
       return val_to_ret;
     }
@@ -1068,6 +1217,13 @@ public:
   string dump_ast(int depth = 0) const {
     return dumpParameters(this, children, depth, true);
   }
+
+  ASTNode* optimise(){
+    for (auto &child : children) {
+      child = child->optimise();
+    }
+    return this;;
+  }
 };
 
 class DeclarationNode : public ASTNode {
@@ -1084,6 +1240,13 @@ public:
   }
 
   bool check_semantics() { return init_declarator_list->check_semantics(); }
+
+
+  ASTNode* optimise() {
+    declaration_specifiers = declaration_specifiers->optimise();
+    init_declarator_list = init_declarator_list->optimise();
+    return this;
+  }
 
   Value *codegen() {
 
@@ -1107,6 +1270,10 @@ public:
 
   string dump_ast(int depth = 0) const {
     return dumpParameters(this, {declarator, initializer}, depth, false);
+  }
+
+  ASTNode* optimise(){
+
   }
 
   bool check_semantics() {
@@ -1161,10 +1328,31 @@ public:
 
     cout << "Name " << declarator->get().s << endl;
 
-    llvm::AllocaInst *alloca = codeGenerator.getBuilder().CreateAlloca(
-        declaration_type_copy, nullptr, declarator->get().s);
-    if (val)
-      codeGenerator.getBuilder().CreateStore(val, alloca);
+    llvm::Value *alloca = nullptr;
+
+    if (is_declaration_global) {
+
+      llvm::Constant *init_val = nullptr;
+
+      if (llvm::isa<llvm::Constant>(val)) {
+        init_val = llvm::dyn_cast<llvm::Constant>(val);
+      } else {
+        throw std::runtime_error(
+            "Global variable must be initialized with a constant");
+      }
+
+      alloca = new llvm::GlobalVariable(
+          *codeGenerator.global_module, declaration_type_copy, false,
+          llvm::GlobalValue::ExternalLinkage, init_val, name);
+    } else {
+      alloca = codeGenerator.getBuilder().CreateAlloca(declaration_type_copy,
+                                                       nullptr, name);
+      if (val) {
+        make_store_compatible(alloca, val);
+        codeGenerator.getBuilder().CreateStore(val, alloca);
+      }
+    }
+
     codeGenerator.getsymbolTable()[declarator->get().s] = alloca;
     return alloca;
   }
@@ -1598,89 +1786,129 @@ public:
     Value *lhsAddr = unary_expression->codegen();
     get_as_lvalue = false;
 
-    /* if (lhsAddr->getType()->isPointerTy()) { */
-    /**/
-    /*   if (rhsValue->getType() != lhsAddr->getType()->getPointerElementType())
-     * { */
-    /*     // Perform type casting of rhsValue to match the type of lhsAddr */
-    /*     cout << "Casting rhsValue to match the type of lhsAddr" << endl; */
-    /*     rhsValue = codeGenerator.getBuilder().CreateBitOrPointerCast( */
-    /*         rhsValue, lhsAddr->getType()->getPointerElementType()); */
-    /*   } */
-    /* } */
+    // Make sure number of bits in lhs and rhs is same, if not cast
+
+    llvm::Type *lhsType = lhsAddr->getType()->getPointerElementType();
 
     // Perform the assignment based on the operator
+
     switch (assOp) {
-    case AssignmentOperator::ASSIGN:
+    case AssignmentOperator::ASSIGN: {
       // Store the value to the address
-      codeGenerator.getBuilder().CreateStore(rhsValue, lhsAddr);
+
+      make_store_compatible(lhsAddr, rhsValue);
+      codeGenerator.getBuilder().CreateStore(rhsValue, lhsAddr, "eqassign");
       break;
-    /* case AssignmentOperator::MUL_ASSIGN: */
-    /*     // Load the current value from the address, perform multiplication,
-     * and store the result */
-    /*     codeGenerator.getBuilder().CreateStore( */
-    /*         codeGenerator.getBuilder().CreateMul(codeGenerator.getBuilder().CreateLoad(lhsAddr),
-     * rhsValue), lhsAddr); */
-    /*     break; */
-    /* case AssignmentOperator::DIV_ASSIGN: */
-    /*     // Perform division and store the result */
-    /*     codeGenerator.getBuilder().CreateStore( */
-    /*         codeGenerator.getBuilder().CreateSDiv(codeGenerator.getBuilder().CreateLoad(lhsAddr),
-     * rhsValue), lhsAddr); */
-    /*     break; */
-    /* case AssignmentOperator::MOD_ASSIGN: */
-    /*     // Perform modulus and store the result */
-    /*     codeGenerator.getBuilder().CreateStore( */
-    /*         codeGenerator.getBuilder().CreateSRem(codeGenerator.getBuilder().CreateLoad(lhsAddr),
-     * rhsValue), lhsAddr); */
-    /*     break; */
-    /* case AssignmentOperator::ADD_ASSIGN: */
-    /*     // Perform addition and store the result */
-    /*     codeGenerator.getBuilder().CreateStore( */
-    /*         codeGenerator.getBuilder().CreateAdd(codeGenerator.getBuilder().CreateLoad(lhsAddr),
-     * rhsValue), lhsAddr); */
-    /*     break; */
-    /* case AssignmentOperator::SUB_ASSIGN: */
-    /*     // Perform subtraction and store the result */
-    /*     codeGenerator.getBuilder().CreateStore( */
-    /*         codeGenerator.getBuilder().CreateSub(codeGenerator.getBuilder().CreateLoad(lhsAddr),
-     * rhsValue), lhsAddr); */
-    /*     break; */
-    /* case AssignmentOperator::LEFT_ASSIGN: */
-    /*     // Perform left shift and store the result */
-    /*     codeGenerator.getBuilder().CreateStore( */
-    /*         codeGenerator.getBuilder().CreateShl(codeGenerator.getBuilder().CreateLoad(lhsAddr),
-     * rhsValue), lhsAddr); */
-    /*     break; */
-    /* case AssignmentOperator::RIGHT_ASSIGN: */
-    /*     // Perform right shift and store the result */
-    /*     codeGenerator.getBuilder().CreateStore( */
-    /*         codeGenerator.getBuilder().CreateAShr(codeGenerator.getBuilder().CreateLoad(lhsAddr),
-     * rhsValue), lhsAddr); */
-    /*     break; */
-    /* case AssignmentOperator::AND_ASSIGN: */
-    /*     // Perform bitwise AND and store the result */
-    /*     codeGenerator.getBuilder().CreateStore( */
-    /*         codeGenerator.getBuilder().CreateAnd(codeGenerator.getBuilder().CreateLoad(lhsAddr),
-     * rhsValue), lhsAddr); */
-    /*     break; */
-    /* case AssignmentOperator::XOR_ASSIGN: */
-    /*     // Perform bitwise XOR and store the result */
-    /*     codeGenerator.getBuilder().CreateStore( */
-    /*         codeGenerator.getBuilder().CreateXor(codeGenerator.getBuilder().CreateLoad(lhsAddr),
-     * rhsValue), lhsAddr); */
-    /*     break; */
-    /* case AssignmentOperator::OR_ASSIGN: */
-    /*     // Perform bitwise OR and store the result */
-    /*     codeGenerator.getBuilder().CreateStore( */
-    /*         codeGenerator.getBuilder().CreateOr(codeGenerator.getBuilder().CreateLoad(lhsAddr),
-     * rhsValue), lhsAddr); */
-    /*     break; */
+    }
+    case AssignmentOperator::MUL_ASSIGN: {
+      llvm::Value *lhsVal =
+          codeGenerator.getBuilder().CreateLoad(lhsType, lhsAddr, "mulload");
+      make_lhs_rhs_compatible(lhsVal, rhsValue);
+      llvm::Value *mul =
+          codeGenerator.getBuilder().CreateMul(lhsVal, rhsValue, "mulcreate");
+      make_store_compatible(lhsAddr, mul);
+      codeGenerator.getBuilder().CreateStore(mul, lhsAddr, "mulstore");
+
+      break;
+    }
+    case AssignmentOperator::DIV_ASSIGN: {
+      llvm::Value *lhsValDiv =
+          codeGenerator.getBuilder().CreateLoad(lhsType, lhsAddr, "divload");
+      make_lhs_rhs_compatible(lhsValDiv, rhsValue);
+      llvm::Value *div = codeGenerator.getBuilder().CreateSDiv(
+          lhsValDiv, rhsValue, "divcreate");
+      make_store_compatible(lhsAddr, div);
+      codeGenerator.getBuilder().CreateStore(div, lhsAddr, "divstore");
+      break;
+    }
+    case AssignmentOperator::MOD_ASSIGN: {
+      llvm::Value *lhsValMod =
+          codeGenerator.getBuilder().CreateLoad(lhsType, lhsAddr, "modload");
+      make_lhs_rhs_compatible(lhsValMod, rhsValue);
+      llvm::Value *mod = codeGenerator.getBuilder().CreateSRem(
+          lhsValMod, rhsValue, "modcreate");
+      make_store_compatible(lhsAddr, mod);
+      codeGenerator.getBuilder().CreateStore(mod, lhsAddr, "modstore");
+      break;
+    }
+    case AssignmentOperator::ADD_ASSIGN: {
+      llvm::Value *lhsValAdd =
+          codeGenerator.getBuilder().CreateLoad(lhsType, lhsAddr, "addload");
+      make_lhs_rhs_compatible(lhsValAdd, rhsValue);
+      llvm::Value *add = codeGenerator.getBuilder().CreateAdd(
+          lhsValAdd, rhsValue, "addcreate");
+      make_store_compatible(lhsAddr, add);
+      codeGenerator.getBuilder().CreateStore(add, lhsAddr, "addstore");
+      break;
+    }
+    case AssignmentOperator::SUB_ASSIGN: {
+      llvm::Value *lhsValSub =
+          codeGenerator.getBuilder().CreateLoad(lhsType, lhsAddr, "subload");
+      make_lhs_rhs_compatible(lhsValSub, rhsValue);
+      llvm::Value *sub = codeGenerator.getBuilder().CreateSub(
+          lhsValSub, rhsValue, "subcreate");
+
+      make_store_compatible(lhsAddr, sub);
+      codeGenerator.getBuilder().CreateStore(sub, lhsAddr, "substore");
+      break;
+    }
+    case AssignmentOperator::LEFT_ASSIGN: {
+      llvm::Value *lhsValLeft =
+          codeGenerator.getBuilder().CreateLoad(lhsType, lhsAddr, "leftload");
+      make_lhs_rhs_compatible(lhsValLeft, rhsValue);
+      llvm::Value *left = codeGenerator.getBuilder().CreateShl(
+          lhsValLeft, rhsValue, "leftcreate");
+      make_store_compatible(lhsAddr, left);
+
+      codeGenerator.getBuilder().CreateStore(left, lhsAddr, "leftstore");
+      break;
+    }
+    case AssignmentOperator::RIGHT_ASSIGN: {
+      llvm::Value *lhsValRight =
+          codeGenerator.getBuilder().CreateLoad(lhsType, lhsAddr, "rightload");
+      make_lhs_rhs_compatible(lhsValRight, rhsValue);
+      llvm::Value *right = codeGenerator.getBuilder().CreateAShr(
+          lhsValRight, rhsValue, "rightcreate");
+      make_store_compatible(lhsAddr, right);
+      codeGenerator.getBuilder().CreateStore(right, lhsAddr, "rightstore");
+      break;
+    }
+    case AssignmentOperator::AND_ASSIGN: {
+      llvm::Value *lhsValAnd =
+          codeGenerator.getBuilder().CreateLoad(lhsType, lhsAddr, "andload");
+      make_lhs_rhs_compatible(lhsValAnd, rhsValue);
+      llvm::Value *and_val = codeGenerator.getBuilder().CreateAnd(
+          lhsValAnd, rhsValue, "andcreate");
+
+      make_store_compatible(lhsAddr, and_val);
+
+      codeGenerator.getBuilder().CreateStore(and_val, lhsAddr, "andstore");
+      break;
+    }
+    case AssignmentOperator::XOR_ASSIGN: {
+      llvm::Value *lhsValXor =
+          codeGenerator.getBuilder().CreateLoad(lhsType, lhsAddr, "xorload");
+      make_lhs_rhs_compatible(lhsValXor, rhsValue);
+      llvm::Value *xor_val = codeGenerator.getBuilder().CreateXor(
+          lhsValXor, rhsValue, "xorcreate");
+      make_store_compatible(lhsAddr, xor_val);
+      codeGenerator.getBuilder().CreateStore(xor_val, lhsAddr, "xorstore");
+      break;
+    }
+    case AssignmentOperator::OR_ASSIGN: {
+      llvm::Value *lhsValOr =
+          codeGenerator.getBuilder().CreateLoad(lhsType, lhsAddr, "orload");
+      make_lhs_rhs_compatible(lhsValOr, rhsValue);
+      llvm::Value *or_val =
+          codeGenerator.getBuilder().CreateOr(lhsValOr, rhsValue, "orcreate");
+      make_store_compatible(lhsAddr, or_val);
+      codeGenerator.getBuilder().CreateStore(or_val, lhsAddr, "orstore");
+      break;
+    }
     default:
       cerr << "Error: Unsupported assignment operator." << endl;
       return nullptr;
     }
-
     // Return the assigned value
     return rhsValue;
   }
@@ -1729,7 +1957,7 @@ public:
                                                      llvm::APInt(32, 0));
 
       llvm::Value *val_to_ret = codeGenerator.getBuilder().CreateGEP(
-          element_type, postFixValue, {zero_val, indexValue});
+          element_type, postFixValue, {zero_val, indexValue}, "geparray");
 
       cout << "Jeeelo" << endl;
 
@@ -1737,12 +1965,12 @@ public:
         return val_to_ret;
 
       return codeGenerator.getBuilder().CreateLoad(
-          element_type->getArrayElementType(), val_to_ret);
+          element_type->getArrayElementType(), val_to_ret, "arrayload");
 
     } else {
 
-      llvm::Value *load_pointer =
-          codeGenerator.getBuilder().CreateLoad(element_type, postFixValue);
+      llvm::Value *load_pointer = codeGenerator.getBuilder().CreateLoad(
+          element_type, postFixValue, "pointerload");
 
       llvm::Type *load_pointer_type =
           load_pointer->getType()->getPointerElementType();
@@ -1750,13 +1978,13 @@ public:
       llvm::Value *zero_val = llvm::ConstantInt::get(codeGenerator.getContext(),
                                                      llvm::APInt(32, 0));
       llvm::Value *val_to_ret = codeGenerator.getBuilder().CreateGEP(
-          load_pointer_type, load_pointer, {indexValue});
+          load_pointer_type, load_pointer, {indexValue}, "geppointer");
 
       if (get_as_lvalue)
         return val_to_ret;
 
-      return codeGenerator.getBuilder().CreateLoad(load_pointer_type,
-                                                   val_to_ret);
+      return codeGenerator.getBuilder().CreateLoad(
+          load_pointer_type, val_to_ret, "poitnervalload");
     }
 
     /* llvm::Value *zero = llvm::ConstantInt::get( */
@@ -1805,13 +2033,19 @@ public:
 
     /* if (args.size() != function->arg_size()) { */
     /*   throw std::runtime_error("Function " + function_name + */
-    /*                            " called with wrong number of arguments."); */
+    /*                            " called with wrong number of arguments.");
+     */
     /* } */
 
     vector<Value *> arguments;
     for (auto arg : args) {
       arguments.push_back(arg->codegen());
     }
+
+    if (function->getReturnType()->isVoidTy()) {
+      return codeGenerator.getBuilder().CreateCall(function, arguments);
+    }
+
     return codeGenerator.getBuilder().CreateCall(function, arguments,
                                                  function_name + "_call");
   }
@@ -1856,23 +2090,48 @@ public:
     switch (un_op) {
     case UnaryOperator::INC_OP: {
       llvm::Type *val_type = val->getType()->getPointerElementType();
-      Value *old_val = codeGenerator.getBuilder().CreateLoad(val_type, val);
-      Value *new_val = codeGenerator.getBuilder().CreateAdd(
-          old_val,
-          llvm::ConstantInt::get(
-              llvm::Type::getInt32Ty(codeGenerator.getContext()), 1, true),
-          "inc");
+      Value *old_val =
+          codeGenerator.getBuilder().CreateLoad(val_type, val, "INC_OP_LOAD");
+
+      Value *one;
+      if (val_type->isPointerTy()) {
+        // If it's a pointer type, increment by the size of the pointed-to
+        // type
+        one = codeGenerator.getBuilder().getInt32(
+            codeGenerator.getDataLayout().getTypeAllocSize(val_type));
+
+      } else {
+        // Otherwise, increment by 1
+        one = llvm::ConstantInt::get(
+            llvm::Type::getInt32Ty(codeGenerator.getContext()), 1, true);
+      }
+
+      Value *new_val =
+          codeGenerator.getBuilder().CreateAdd(old_val, one, "inc");
+
       codeGenerator.getBuilder().CreateStore(new_val, val);
       return new_val;
     }
     case UnaryOperator::DEC_OP: {
       llvm::Type *val_type = val->getType()->getPointerElementType();
-      Value *old_val = codeGenerator.getBuilder().CreateLoad(val_type, val);
-      Value *new_val = codeGenerator.getBuilder().CreateSub(
-          old_val,
-          llvm::ConstantInt::get(
-              llvm::Type::getInt32Ty(codeGenerator.getContext()), 1, true),
-          "inc");
+      Value *old_val =
+          codeGenerator.getBuilder().CreateLoad(val_type, val, "DEC_OP_LOAD");
+
+      Value *one;
+      if (val_type->isPointerTy()) {
+        // If it's a pointer type, increment by the size of the pointed-to
+        // type
+        one = codeGenerator.getBuilder().getInt32(
+            codeGenerator.getDataLayout().getTypeAllocSize(val_type));
+
+      } else {
+        // Otherwise, increment by 1
+        one = llvm::ConstantInt::get(
+            llvm::Type::getInt32Ty(codeGenerator.getContext()), 1, true);
+      }
+
+      Value *new_val =
+          codeGenerator.getBuilder().CreateSub(old_val, one, "inc");
       codeGenerator.getBuilder().CreateStore(new_val, val);
       return new_val;
     }
@@ -1895,17 +2154,24 @@ public:
           val->getType()->getPointerElementType(), val, "deref");
     case UnaryOperator::PLUS:
       return val;
-    case UnaryOperator::MINUS:
-      return codeGenerator.getBuilder().CreateNeg(val);
+    case UnaryOperator::MINUS: {
+      llvm::Value *zero = llvm::ConstantInt::get(
+          llvm::Type::getInt32Ty(codeGenerator.getContext()), 0);
+      make_lhs_rhs_compatible(val, zero);
+      return codeGenerator.getBuilder().CreateSub(zero, val, "neg");
+    }
     case UnaryOperator::BITWISE_NOT:
-      return codeGenerator.getBuilder().CreateNot(val);
+
+      return codeGenerator.getBuilder().CreateNot(val, "bitnot");
     case UnaryOperator::LOGICAL_NOT: {
-      Value *cmp = codeGenerator.getBuilder().CreateICmpNE(
-          val,
-          llvm::ConstantInt::get(codeGenerator.getBuilder().getInt32Ty(), 0));
+      llvm::Value *zero = llvm::ConstantInt::get(
+          llvm::Type::getInt1Ty(codeGenerator.getContext()), 0);
+      make_lhs_rhs_compatible(val, zero);
+      Value *cmp = codeGenerator.getBuilder().CreateICmpNE(val, zero, "lognot");
+
       Value *boolVal = codeGenerator.getBuilder().CreateZExt(
-          cmp, codeGenerator.getBuilder().getInt1Ty());
-      return codeGenerator.getBuilder().CreateNot(boolVal);
+          cmp, codeGenerator.getBuilder().getInt1Ty(), "lognotcmp");
+      return codeGenerator.getBuilder().CreateNot(boolVal, "lognot2");
     }
     }
 
@@ -1963,24 +2229,52 @@ public:
 
     case UnaryOperator::INC_OP: {
       llvm::Type *val_type = val->getType()->getPointerElementType();
-      Value *old_val = codeGenerator.getBuilder().CreateLoad(val_type, val);
-      Value *new_val = codeGenerator.getBuilder().CreateAdd(
-          old_val,
-          llvm::ConstantInt::get(
-              llvm::Type::getInt32Ty(codeGenerator.getContext()), 1, true),
-          "inc");
+      Value *old_val =
+          codeGenerator.getBuilder().CreateLoad(val_type, val, "INC_OP_LOAD2");
+
+      Value *one;
+      if (val_type->isPointerTy()) {
+        // If it's a pointer type, increment by the size of the pointed-to
+        // type
+        one = codeGenerator.getBuilder().getInt32(
+            codeGenerator.getDataLayout().getTypeAllocSize(val_type));
+
+      } else {
+        // Otherwise, increment by 1
+        one = llvm::ConstantInt::get(
+
+            llvm::Type::getInt32Ty(codeGenerator.getContext()), 1, true);
+      }
+
+      make_lhs_rhs_compatible(one, old_val);
+
+      Value *new_val =
+          codeGenerator.getBuilder().CreateAdd(old_val, one, "inc");
       codeGenerator.getBuilder().CreateStore(new_val, val);
       return old_val;
     }
     case UnaryOperator::DEC_OP: {
 
       llvm::Type *val_type = val->getType()->getPointerElementType();
-      Value *old_val = codeGenerator.getBuilder().CreateLoad(val_type, val);
-      Value *new_val = codeGenerator.getBuilder().CreateSub(
-          old_val,
-          llvm::ConstantInt::get(
-              llvm::Type::getInt32Ty(codeGenerator.getContext()), 1, true),
-          "inc");
+
+      Value *old_val =
+          codeGenerator.getBuilder().CreateLoad(val_type, val, "DEC_OP_LOAD2");
+
+      Value *one;
+      if (val_type->isPointerTy()) {
+        // If it's a pointer type, increment by the size of the pointed-to
+        // type
+        one = codeGenerator.getBuilder().getInt32(
+            codeGenerator.getDataLayout().getTypeAllocSize(val_type));
+
+      } else {
+        // Otherwise, increment by 1
+        one = llvm::ConstantInt::get(
+            llvm::Type::getInt32Ty(codeGenerator.getContext()), 1, true);
+      }
+
+      Value *new_val =
+          codeGenerator.getBuilder().CreateSub(old_val, one, "dec");
       codeGenerator.getBuilder().CreateStore(new_val, val);
       return old_val;
     }
@@ -2022,6 +2316,9 @@ public:
   Value *codegen() {
 
     Value *conditionValue = logical_or_expression->codegen();
+
+    make_bool(conditionValue);
+
     if (conditionValue->getType()->getTypeID() != llvm::Type::IntegerTyID) {
       conditionValue = codeGenerator.getBuilder().CreateIntCast(
           conditionValue, llvm::Type::getInt1Ty(codeGenerator.getContext()),
@@ -2064,7 +2361,7 @@ public:
 
     // Create phi node to merge the results from thenBlock and elseBlock
     llvm::PHINode *phiNode =
-        codeGenerator.getBuilder().CreatePHI(thenValue->getType(), 2);
+        codeGenerator.getBuilder().CreatePHI(thenValue->getType(), 2, "iftmp");
     phiNode->addIncoming(thenValue, then_block);
     phiNode->addIncoming(elseValue, else_block);
 
@@ -2286,20 +2583,8 @@ public:
     Value *lhs = equality_expression->codegen();
     Value *rhs = relational_expression->codegen();
 
-    bool use_float = false;
-
-    use_float |= (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
-    use_float |= (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
-
-    if (use_float) {
-      if (lhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
-        lhs = codeGenerator.getBuilder().CreateSIToFP(
-            lhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
-      }
-      if (rhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
-        rhs = codeGenerator.getBuilder().CreateSIToFP(
-            rhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
-      }
+    make_lhs_rhs_compatible(lhs, rhs);
+    if(lhs->getType()->getTypeID() == llvm::Type::DoubleTyID) {
       return codeGenerator.getBuilder().CreateFCmpOEQ(lhs, rhs, "equal");
     }
 
@@ -2333,21 +2618,10 @@ public:
     Value *lhs = equality_expression->codegen();
     Value *rhs = relational_expression->codegen();
 
-    bool use_float = false;
-
-    use_float |= (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
-    use_float |= (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
-
-    if (use_float) {
-      if (lhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
-        lhs = codeGenerator.getBuilder().CreateSIToFP(
-            lhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
-      }
-      if (rhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
-        rhs = codeGenerator.getBuilder().CreateSIToFP(
-            rhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
-      }
-      return codeGenerator.getBuilder().CreateFCmpONE(lhs, rhs, "equal");
+    make_lhs_rhs_compatible(lhs, rhs);
+    
+  if(lhs->getType()->getTypeID() == llvm::Type::DoubleTyID){
+      return codeGenerator.getBuilder().CreateFCmpONE(lhs, rhs, "nequal");
     }
 
     return codeGenerator.getBuilder().CreateICmpNE(lhs, rhs, "nequal");
@@ -2380,22 +2654,12 @@ public:
     Value *lhs = relational_expression->codegen();
     Value *rhs = shift_expression->codegen();
 
-    bool use_float = false;
+    make_lhs_rhs_compatible(lhs, rhs);
 
-    use_float |= (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
-    use_float |= (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
-
-    if (use_float) {
-      if (lhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
-        lhs = codeGenerator.getBuilder().CreateSIToFP(
-            lhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
-      }
-      if (rhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
-        rhs = codeGenerator.getBuilder().CreateSIToFP(
-            rhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
-      }
-      return codeGenerator.getBuilder().CreateFCmpOLT(lhs, rhs, "lt");
+    if(lhs->getType()->getTypeID() == llvm::Type::DoubleTyID) {
+    codeGenerator.getBuilder().CreateFCmpOLT(lhs, rhs, "lt");
     }
+
 
     return codeGenerator.getBuilder().CreateICmpSLT(lhs, rhs, "lt");
   }
@@ -2427,23 +2691,11 @@ public:
     Value *lhs = relational_expression->codegen();
     Value *rhs = shift_expression->codegen();
 
-    bool use_float = false;
+    make_lhs_rhs_compatible(lhs, rhs);
 
-    use_float |= (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
-    use_float |= (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
-
-    if (use_float) {
-      if (lhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
-        lhs = codeGenerator.getBuilder().CreateSIToFP(
-            lhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
-      }
-      if (rhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
-        rhs = codeGenerator.getBuilder().CreateSIToFP(
-            rhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
-      }
-      return codeGenerator.getBuilder().CreateFCmpOGT(lhs, rhs, "gt");
+    if(lhs->getType()->getTypeID() == llvm::Type::DoubleTyID) {
+    return codeGenerator.getBuilder().CreateFCmpOGT(lhs, rhs, "gt");
     }
-
     return codeGenerator.getBuilder().CreateICmpSGT(lhs, rhs, "gt");
   }
 
@@ -2474,23 +2726,12 @@ public:
     Value *lhs = relational_expression->codegen();
     Value *rhs = shift_expression->codegen();
 
-    bool use_float = false;
-
-    use_float |= (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
-    use_float |= (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
-
-    if (use_float) {
-      if (lhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
-        lhs = codeGenerator.getBuilder().CreateSIToFP(
-            lhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
-      }
-      if (rhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
-        rhs = codeGenerator.getBuilder().CreateSIToFP(
-            rhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
-      }
+    make_lhs_rhs_compatible(lhs, rhs);
+    
+    if(lhs->getType()->getTypeID() == llvm::Type::DoubleTyID) {
       return codeGenerator.getBuilder().CreateFCmpOLE(lhs, rhs, "le");
+          
     }
-
     return codeGenerator.getBuilder().CreateICmpSLE(lhs, rhs, "le");
   }
 
@@ -2521,23 +2762,13 @@ public:
     Value *lhs = relational_expression->codegen();
     Value *rhs = shift_expression->codegen();
 
-    bool use_float = false;
-
-    use_float |= (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
-    use_float |= (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
-
-    if (use_float) {
-      if (lhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
-        lhs = codeGenerator.getBuilder().CreateSIToFP(
-            lhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
-      }
-      if (rhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
-        rhs = codeGenerator.getBuilder().CreateSIToFP(
-            rhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
-      }
+    make_lhs_rhs_compatible(lhs, rhs);
+    if(lhs->getType()->getTypeID() == llvm::Type::DoubleTyID) {
+    
       return codeGenerator.getBuilder().CreateFCmpOGE(lhs, rhs, "ge");
-    }
+          
 
+    }
     return codeGenerator.getBuilder().CreateICmpSGE(lhs, rhs, "ge");
   }
 
@@ -2650,22 +2881,8 @@ public:
   Value *codegen() {
     Value *lhs = additive_expression->codegen();
     Value *rhs = multiplicative_expression->codegen();
-    bool use_float = false;
 
-    use_float |= (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
-    use_float |= (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
-
-    if (use_float) {
-      if (lhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
-        lhs = codeGenerator.getBuilder().CreateSIToFP(
-            lhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
-      }
-      if (rhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
-        rhs = codeGenerator.getBuilder().CreateSIToFP(
-            rhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
-      }
-      return codeGenerator.getBuilder().CreateFAdd(lhs, rhs, "add");
-    }
+    make_lhs_rhs_compatible(lhs, rhs);
 
     return codeGenerator.getBuilder().CreateAdd(lhs, rhs, "add");
   }
@@ -2696,22 +2913,8 @@ public:
   Value *codegen() {
     Value *lhs = additive_expression->codegen();
     Value *rhs = multiplicative_expression->codegen();
-    bool use_float = false;
 
-    use_float |= (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
-    use_float |= (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
-
-    if (use_float) {
-      if (lhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
-        lhs = codeGenerator.getBuilder().CreateSIToFP(
-            lhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
-      }
-      if (rhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
-        rhs = codeGenerator.getBuilder().CreateSIToFP(
-            rhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
-      }
-      return codeGenerator.getBuilder().CreateFSub(lhs, rhs, "sub");
-    }
+    make_lhs_rhs_compatible(lhs, rhs);
 
     return codeGenerator.getBuilder().CreateSub(lhs, rhs, "sub");
   }
@@ -2743,23 +2946,7 @@ public:
     Value *lhs = multiplicative_expression->codegen();
     Value *rhs = cast_expression->codegen();
 
-    bool use_float = false;
-
-    use_float |= (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
-    use_float |= (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
-
-    if (use_float) {
-      if (lhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
-        lhs = codeGenerator.getBuilder().CreateSIToFP(
-            lhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
-      }
-      if (rhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
-        rhs = codeGenerator.getBuilder().CreateSIToFP(
-            rhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
-      }
-      return codeGenerator.getBuilder().CreateFMul(lhs, rhs, "mul");
-    }
-
+    make_lhs_rhs_compatible(lhs, rhs);
     return codeGenerator.getBuilder().CreateMul(lhs, rhs, "mul");
   }
 
@@ -2789,22 +2976,7 @@ public:
   Value *codegen() {
     Value *lhs = multiplicative_expression->codegen();
     Value *rhs = cast_expression->codegen();
-    bool use_float = false;
-
-    use_float |= (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
-    use_float |= (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID);
-
-    if (use_float) {
-      if (lhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
-        lhs = codeGenerator.getBuilder().CreateSIToFP(
-            lhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
-      }
-      if (rhs->getType()->getTypeID() == llvm::Type::IntegerTyID) {
-        rhs = codeGenerator.getBuilder().CreateSIToFP(
-            rhs, llvm::Type::getDoubleTy(codeGenerator.getContext()));
-      }
-      return codeGenerator.getBuilder().CreateFDiv(lhs, rhs, "div");
-    }
+    make_lhs_rhs_compatible(lhs, rhs);
 
     return codeGenerator.getBuilder().CreateSDiv(lhs, rhs, "div");
   }
@@ -2880,6 +3052,7 @@ public:
   }
 
   Value *codegen() {
+
     return llvm::ConstantFP::get(codeGenerator.getContext(),
                                  llvm::APFloat(value));
   }

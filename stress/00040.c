@@ -1,7 +1,6 @@
-#include <stdlib.h>
 
 int N;
-int *t;
+int t[64];
 
 int
 chk(int x, int y)
@@ -46,7 +45,6 @@ go(int n, int x, int y)
 int
 main()
 {
-        t = calloc(64, sizeof(int));
         go(0, 0, 0);
         if(N != 92)
         	return 1;

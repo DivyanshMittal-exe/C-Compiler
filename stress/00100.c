@@ -1,5 +1,5 @@
 int
-foo(void)
+foo()
 {
 	return 0;
 }

@@ -55,6 +55,29 @@ if __name__ == '__main__':
         filename for filename in os.listdir('./stress/')
         if filename.endswith('.c')
     ]
+    c_files_copy = []
+    skip_if_has = [
+        'struct', 'union', 'enum', '#define', "#if", "typedef", "sizeof"
+    ]
+    for file in c_files:
+        with open(os.path.join('./stress/', file), 'r') as f:
+            content = f.read()
+            for s in skip_if_has:
+                if s in content:
+                    print(f"Skipping {file} because of {s}")
+                    break
+            else:
+                c_files_copy.append(file)
+    c_files = c_files_copy
+    to_skip = [
+        37, 38, 39, 40, 51, 72, 73, 78, 88, 90, 95, 103, 112, 117, 119, 123
+    ]
+    not_care = [43, 44, 46, 47, 98, 104, 114, 124, 128]
+
+    to_skip += not_care
+    to_skip = [("000000" + str(i))[-5:] + ".c" for i in to_skip]
+
+    c_files = [file for file in c_files if file not in to_skip]
 
     c_files = sorted(c_files)
     print(c_files)

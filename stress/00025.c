@@ -1,10 +1,8 @@
-int strlen(char *);
+int strlen(char *word);
 
-int
-main()
-{
-	char *p;
-	
-	p = "hello";
-	return strlen(p) - 5;
+int main() {
+  char *p;
+
+  p = "hello";
+  return strlen(p) - 5;
 }
