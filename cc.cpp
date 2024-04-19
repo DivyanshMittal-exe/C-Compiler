@@ -15,7 +15,7 @@ static void usage() {
   std::cout << "Usage: cc <prog.c>" << std::endl;
   std::cout << "Additional arguments:" << std::endl;
   std::cout << "-o <filename>: Specify output file" << std::endl;
-  std::cout << "--optimise: Enable optimization" << std::endl;
+  std::cout << "--no-optimise: Disable optimization" << std::endl;
 
   std::cout << "--dump-ast: Dump abstract syntax tree" << std::endl;
   std::cout << "--skip-semantics: Skip checking for semantics" << std::endl;
@@ -28,7 +28,7 @@ int main(int argc, char **argv) {
   bool skipSemantics = false;
 
   std::string out_filename = "a.ll";
-  bool optimise = false;
+  bool optimise = true;
   bool dump_ast = false;
   std::string prog_filename;
 
@@ -39,8 +39,8 @@ int main(int argc, char **argv) {
     if (arg == "-o" && i + 1 < argc) {
       out_filename = argv[i + 1];
       i++;
-    } else if (arg == "--optimise") { // Check for --optimise flag
-      optimise = true;
+    } else if (arg == "--no-optimise") { // Check for --optimise flag
+      optimise = false;
     } else if (arg == "--dump-ast") { // Check for --dump-ast flag
       dump_ast = true;
     } else if (arg == "--skip-semantics") {
@@ -95,7 +95,19 @@ int main(int argc, char **argv) {
     }
   }
 
-  root->optimise();
+  if (optimise) {
+    ASTNode *old = new NullPtrNode();
+    string old_dump = old->dump_ast();
+    int i = 0;
+    while (old_dump != root->dump_ast()) {
+      old_dump = root->dump_ast();
+      root = root->optimise();
+      if (i > 100) {
+        break;
+      }
+      i++;
+    }
+  }
 
   root->codegen();
   root->dump_llvm(out_filename);

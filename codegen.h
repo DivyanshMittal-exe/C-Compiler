@@ -2,6 +2,7 @@
 #define INCLUDE_CC_CODEGEN_H_
 
 #include "AST_enums.hpp"
+#include "scoper.h"
 #include "llvm/IR/IRBuilder.h"
 #include "llvm/IR/LLVMContext.h"
 #include "llvm/IR/Module.h"
@@ -14,8 +15,6 @@
 #include <stdexcept>
 #include <string>
 #include <vector>
-#include "AST_enums.hpp"
-#include "scoper.h"
 using namespace std;
 
 class m_Context {
@@ -24,7 +23,7 @@ public:
   bool clean_for_optimisation = true;
   map<string, llvm::Value *> variables;
   map<string, llvm::Value *> carry_over_variables;
-  
+
   map<string, m_Value> values;
 
   m_Context() { is_global = false; }
@@ -126,6 +125,27 @@ public:
     }
 
     throw std::runtime_error("Variable " + name + " not found");
+  }
+
+  m_Value get_mval(string key) {
+    for (auto it = symbol_tables.rbegin(); it != symbol_tables.rend(); ++it) {
+      auto &x = *it; // Dereference the reverse iterator to get the element
+      // Check if the variable exists in the current symbol_table
+      if (x->values.find(key) != x->values.end()) {
+        if (x->clean_for_optimisation) {
+          return x->values[key];
+
+        } else {
+          return m_Value();
+        }
+      }
+    }
+    return m_Value();
+  }
+
+  void put_mval(string key, m_Value val) {
+    val.s = key;
+    symbol_tables.back()->values[key] = val;
   }
 };
 

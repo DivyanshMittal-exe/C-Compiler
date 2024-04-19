@@ -56,7 +56,7 @@ ASTNode* root = NULL;
 %type <base_node> direct_declarator
 %type <base_node> constant_expression expression
 %type <base_node> primary_expression postfix_expression argument_expression_list unary_expression  cast_expression multiplicative_expression additive_expression shift_expression relational_expression equality_expression and_expression exclusive_or_expression inclusive_or_expression logical_and_expression logical_or_expression conditional_expression assignment_expression
-%type <base_node> constant string identifier_list parameter_type_list parameter_list parameter_declaration abstract_declarator
+%type <base_node> constant string parameter_type_list parameter_list parameter_declaration abstract_declarator
 %type <base_node> pointer initializer_list
 
 %type <un_op> unary_operator
@@ -109,8 +109,8 @@ postfix_expression
 	| postfix_expression '[' expression ']' {$$ = new ArrayAccessNode($1, $3);}
 	| postfix_expression '(' ')' {$$ = new FunctionCallNode($1, new NullPtrNode());}
 	| postfix_expression '(' argument_expression_list ')' {$$ = new FunctionCallNode($1, $3);}
-	| postfix_expression '.' IDENTIFIER {$$ = new MemberAccessNode($1, new IdentifierNode($3));}
-	| postfix_expression PTR_OP IDENTIFIER {$$ = new MemberAccessNode($1, new IdentifierNode($3));}
+	| postfix_expression '.' IDENTIFIER {$$ = new NullPtrNode();}
+	| postfix_expression PTR_OP IDENTIFIER {$$ = new NullPtrNode();}
 	| postfix_expression INC_OP {$$ = new PostfixExpressionNode($1, UnaryOperator::INC_OP);}
 	| postfix_expression DEC_OP {$$ = new PostfixExpressionNode($1, UnaryOperator::DEC_OP);}
 	| '(' type_name ')' '{' initializer_list '}' { $$ = $5; }
@@ -134,7 +134,7 @@ unary_expression
 	| ALIGNOF '(' type_name ')' { $$ = new NullPtrNode(); }
 	;
 
-unary_operator
+unary_operator 
 	: '&' {$$ = UnaryOperator::ADDRESS_OF; }
 	| '*' {$$ = UnaryOperator::MUL_OP; }
 	| '+' {$$ = UnaryOperator::PLUS; }
@@ -429,8 +429,8 @@ parameter_declaration
 	;
 
 identifier_list
-	: IDENTIFIER { $$ = new IdentifierListNode(); $$->addChild(new IdentifierNode($1));}
-	| identifier_list ',' IDENTIFIER { $$ = $1; $1->addChild(new IdentifierNode($3)); }
+	: IDENTIFIER 
+	| identifier_list ',' IDENTIFIER 
 	;
 
 type_name
@@ -476,10 +476,10 @@ initializer
 
 initializer_list
 	: designation initializer {$$ = new NullPtrNode();}
-	| initializer {$$ = new InitializerListNode(); $$->addChild($1);}
-	| initializer_list ',' designation initializer
-	| initializer_list ',' initializer {$$ = $1; $$->addChild($3);}
-	;
+	| initializer {$$ = new NullPtrNode();}
+	| initializer_list ',' designation initializer {$$ = new NullPtrNode();}
+	| initializer_list ',' initializer  {$$ = new NullPtrNode();}
+	; 
 
 designation
 	: designator_list '='

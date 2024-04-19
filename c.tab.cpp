@@ -2097,13 +2097,13 @@ yyreduce:
 
   case 22: /* postfix_expression: postfix_expression '.' IDENTIFIER  */
 #line 112 "c.y"
-                                            {(yyval.base_node) = new MemberAccessNode((yyvsp[-2].base_node), new IdentifierNode((yyvsp[0].str)));}
+                                            {(yyval.base_node) = new NullPtrNode();}
 #line 2102 "c.tab.cpp"
     break;
 
   case 23: /* postfix_expression: postfix_expression PTR_OP IDENTIFIER  */
 #line 113 "c.y"
-                                               {(yyval.base_node) = new MemberAccessNode((yyvsp[-2].base_node), new IdentifierNode((yyvsp[0].str)));}
+                                               {(yyval.base_node) = new NullPtrNode();}
 #line 2108 "c.tab.cpp"
     break;
 
@@ -3001,308 +3001,302 @@ yyreduce:
 #line 3002 "c.tab.cpp"
     break;
 
-  case 196: /* identifier_list: IDENTIFIER  */
-#line 432 "c.y"
-                     { (yyval.base_node) = new IdentifierListNode(); (yyval.base_node)->addChild(new IdentifierNode((yyvsp[0].str)));}
-#line 3008 "c.tab.cpp"
-    break;
-
-  case 197: /* identifier_list: identifier_list ',' IDENTIFIER  */
-#line 433 "c.y"
-                                         { (yyval.base_node) = (yyvsp[-2].base_node); (yyvsp[-2].base_node)->addChild(new IdentifierNode((yyvsp[0].str))); }
-#line 3014 "c.tab.cpp"
-    break;
-
   case 200: /* abstract_declarator: pointer direct_abstract_declarator  */
 #line 442 "c.y"
                                              { (yyval.base_node) = new NullPtrNode(); }
-#line 3020 "c.tab.cpp"
+#line 3008 "c.tab.cpp"
     break;
 
   case 201: /* abstract_declarator: pointer  */
 #line 443 "c.y"
                   { (yyval.base_node) = new NullPtrNode(); }
-#line 3026 "c.tab.cpp"
+#line 3014 "c.tab.cpp"
     break;
 
   case 202: /* abstract_declarator: direct_abstract_declarator  */
 #line 444 "c.y"
                                      { (yyval.base_node) = new NullPtrNode(); }
-#line 3032 "c.tab.cpp"
+#line 3020 "c.tab.cpp"
     break;
 
   case 224: /* initializer: '{' initializer_list '}'  */
 #line 472 "c.y"
                                    { (yyval.base_node) = (yyvsp[-1].base_node); }
-#line 3038 "c.tab.cpp"
+#line 3026 "c.tab.cpp"
     break;
 
   case 225: /* initializer: '{' initializer_list ',' '}'  */
 #line 473 "c.y"
                                        { (yyval.base_node) = (yyvsp[-2].base_node); }
-#line 3044 "c.tab.cpp"
+#line 3032 "c.tab.cpp"
     break;
 
   case 226: /* initializer: assignment_expression  */
 #line 474 "c.y"
                                 { (yyval.base_node) = (yyvsp[0].base_node); }
-#line 3050 "c.tab.cpp"
+#line 3038 "c.tab.cpp"
     break;
 
   case 227: /* initializer_list: designation initializer  */
 #line 478 "c.y"
                                   {(yyval.base_node) = new NullPtrNode();}
-#line 3056 "c.tab.cpp"
+#line 3044 "c.tab.cpp"
     break;
 
   case 228: /* initializer_list: initializer  */
 #line 479 "c.y"
-                      {(yyval.base_node) = new InitializerListNode(); (yyval.base_node)->addChild((yyvsp[0].base_node));}
-#line 3062 "c.tab.cpp"
+                      {(yyval.base_node) = new NullPtrNode();}
+#line 3050 "c.tab.cpp"
+    break;
+
+  case 229: /* initializer_list: initializer_list ',' designation initializer  */
+#line 480 "c.y"
+                                                       {(yyval.base_node) = new NullPtrNode();}
+#line 3056 "c.tab.cpp"
     break;
 
   case 230: /* initializer_list: initializer_list ',' initializer  */
 #line 481 "c.y"
-                                           {(yyval.base_node) = (yyvsp[-2].base_node); (yyval.base_node)->addChild((yyvsp[0].base_node));}
-#line 3068 "c.tab.cpp"
+                                            {(yyval.base_node) = new NullPtrNode();}
+#line 3062 "c.tab.cpp"
     break;
 
   case 237: /* statement: labeled_statement  */
 #line 503 "c.y"
                             { (yyval.base_node) = (yyvsp[0].base_node); }
-#line 3074 "c.tab.cpp"
+#line 3068 "c.tab.cpp"
     break;
 
   case 238: /* statement: compound_statement  */
 #line 504 "c.y"
                              { (yyval.base_node) = (yyvsp[0].base_node); }
-#line 3080 "c.tab.cpp"
+#line 3074 "c.tab.cpp"
     break;
 
   case 239: /* statement: expression_statement  */
 #line 505 "c.y"
                                { (yyval.base_node) = (yyvsp[0].base_node); }
-#line 3086 "c.tab.cpp"
+#line 3080 "c.tab.cpp"
     break;
 
   case 240: /* statement: selection_statement  */
 #line 506 "c.y"
                               { (yyval.base_node) = (yyvsp[0].base_node); }
-#line 3092 "c.tab.cpp"
+#line 3086 "c.tab.cpp"
     break;
 
   case 241: /* statement: iteration_statement  */
 #line 507 "c.y"
                               { (yyval.base_node) = (yyvsp[0].base_node); }
-#line 3098 "c.tab.cpp"
+#line 3092 "c.tab.cpp"
     break;
 
   case 242: /* statement: jump_statement  */
 #line 508 "c.y"
                          { (yyval.base_node) = (yyvsp[0].base_node); }
-#line 3104 "c.tab.cpp"
+#line 3098 "c.tab.cpp"
     break;
 
   case 243: /* labeled_statement: IDENTIFIER ':' statement  */
 #line 512 "c.y"
                                    { (yyval.base_node) = new LabelStatementNode(new IdentifierNode((yyvsp[-2].str)), (yyvsp[0].base_node)); }
-#line 3110 "c.tab.cpp"
+#line 3104 "c.tab.cpp"
     break;
 
   case 244: /* labeled_statement: CASE constant_expression ':' statement  */
 #line 513 "c.y"
                                                  {(yyval.base_node) = new CaseLabelStatementNode((yyvsp[-2].base_node), (yyvsp[0].base_node));}
-#line 3116 "c.tab.cpp"
+#line 3110 "c.tab.cpp"
     break;
 
   case 245: /* labeled_statement: DEFAULT ':' statement  */
 #line 514 "c.y"
                                 {(yyval.base_node) = new DefaultLabelStatementNode((yyvsp[0].base_node));}
-#line 3122 "c.tab.cpp"
+#line 3116 "c.tab.cpp"
     break;
 
   case 246: /* compound_statement: '{' '}'  */
 #line 518 "c.y"
                   {(yyval.base_node) = new CompoundStatementNode();}
-#line 3128 "c.tab.cpp"
+#line 3122 "c.tab.cpp"
     break;
 
   case 247: /* compound_statement: '{' block_item_list '}'  */
 #line 519 "c.y"
                                    {(yyval.base_node) = (yyvsp[-1].base_node);}
-#line 3134 "c.tab.cpp"
+#line 3128 "c.tab.cpp"
     break;
 
   case 248: /* block_item_list: block_item  */
 #line 523 "c.y"
                      {(yyval.base_node) = new CompoundStatementNode(); (yyval.base_node)->addChild((yyvsp[0].base_node));}
-#line 3140 "c.tab.cpp"
+#line 3134 "c.tab.cpp"
     break;
 
   case 249: /* block_item_list: block_item_list block_item  */
 #line 524 "c.y"
                                      {(yyval.base_node) = (yyvsp[-1].base_node); (yyvsp[-1].base_node)->addChild((yyvsp[0].base_node));}
-#line 3146 "c.tab.cpp"
+#line 3140 "c.tab.cpp"
     break;
 
   case 250: /* block_item: declaration  */
 #line 528 "c.y"
                       {(yyval.base_node) = (yyvsp[0].base_node);}
-#line 3152 "c.tab.cpp"
+#line 3146 "c.tab.cpp"
     break;
 
   case 251: /* block_item: statement  */
 #line 529 "c.y"
                     {(yyval.base_node) = (yyvsp[0].base_node);}
-#line 3158 "c.tab.cpp"
+#line 3152 "c.tab.cpp"
     break;
 
   case 252: /* expression_statement: ';'  */
 #line 533 "c.y"
               {(yyval.base_node) = new NullPtrNode();}
-#line 3164 "c.tab.cpp"
+#line 3158 "c.tab.cpp"
     break;
 
   case 253: /* expression_statement: expression ';'  */
 #line 534 "c.y"
                          {(yyval.base_node) = (yyvsp[-1].base_node);}
-#line 3170 "c.tab.cpp"
+#line 3164 "c.tab.cpp"
     break;
 
   case 254: /* selection_statement: IF '(' expression ')' statement ELSE statement  */
 #line 538 "c.y"
                                                          { (yyval.base_node) = new IfElseStatementNode((yyvsp[-4].base_node), (yyvsp[-2].base_node), (yyvsp[0].base_node)); }
-#line 3176 "c.tab.cpp"
+#line 3170 "c.tab.cpp"
     break;
 
   case 255: /* selection_statement: IF '(' expression ')' statement  */
 #line 539 "c.y"
                                           { (yyval.base_node) = new IfElseStatementNode((yyvsp[-2].base_node), (yyvsp[0].base_node), new NullPtrNode()); }
-#line 3182 "c.tab.cpp"
+#line 3176 "c.tab.cpp"
     break;
 
   case 256: /* selection_statement: SWITCH '(' expression ')' statement  */
 #line 540 "c.y"
                                               { (yyval.base_node) = new SwitchStatementNode((yyvsp[-2].base_node), (yyvsp[0].base_node)); }
-#line 3188 "c.tab.cpp"
+#line 3182 "c.tab.cpp"
     break;
 
   case 257: /* iteration_statement: WHILE '(' expression ')' statement  */
 #line 544 "c.y"
                                              { (yyval.base_node) = new WhileStatementNode((yyvsp[-2].base_node), (yyvsp[0].base_node)); }
-#line 3194 "c.tab.cpp"
+#line 3188 "c.tab.cpp"
     break;
 
   case 258: /* iteration_statement: DO statement WHILE '(' expression ')' ';'  */
 #line 545 "c.y"
                                                     { (yyval.base_node) = new DoWhileStatementNode((yyvsp[-2].base_node), (yyvsp[-5].base_node)); }
-#line 3200 "c.tab.cpp"
+#line 3194 "c.tab.cpp"
     break;
 
   case 259: /* iteration_statement: FOR '(' expression_statement expression_statement ')' statement  */
 #line 546 "c.y"
                                                                           { (yyval.base_node) = new ForStatementNode((yyvsp[-3].base_node), (yyvsp[-2].base_node), new NullPtrNode(), (yyvsp[0].base_node)); }
-#line 3206 "c.tab.cpp"
+#line 3200 "c.tab.cpp"
     break;
 
   case 260: /* iteration_statement: FOR '(' expression_statement expression_statement expression ')' statement  */
 #line 547 "c.y"
                                                                                      { (yyval.base_node) = new ForStatementNode((yyvsp[-4].base_node), (yyvsp[-3].base_node), (yyvsp[-2].base_node), (yyvsp[0].base_node)); }
-#line 3212 "c.tab.cpp"
+#line 3206 "c.tab.cpp"
     break;
 
   case 261: /* iteration_statement: FOR '(' declaration expression_statement ')' statement  */
 #line 548 "c.y"
                                                                  { (yyval.base_node) = new ForStatementNode((yyvsp[-3].base_node), (yyvsp[-2].base_node), new NullPtrNode(), (yyvsp[0].base_node)); }
-#line 3218 "c.tab.cpp"
+#line 3212 "c.tab.cpp"
     break;
 
   case 262: /* iteration_statement: FOR '(' declaration expression_statement expression ')' statement  */
 #line 549 "c.y"
                                                                             { (yyval.base_node) = new ForStatementNode((yyvsp[-4].base_node), (yyvsp[-3].base_node), (yyvsp[-2].base_node), (yyvsp[0].base_node)); }
-#line 3224 "c.tab.cpp"
+#line 3218 "c.tab.cpp"
     break;
 
   case 263: /* jump_statement: GOTO IDENTIFIER ';'  */
 #line 553 "c.y"
                               { (yyval.base_node) = new GotoStatementNode(new IdentifierNode((yyvsp[-1].str))); }
-#line 3230 "c.tab.cpp"
+#line 3224 "c.tab.cpp"
     break;
 
   case 264: /* jump_statement: CONTINUE ';'  */
 #line 554 "c.y"
                        { (yyval.base_node) = new ContinueStatementNode(); }
-#line 3236 "c.tab.cpp"
+#line 3230 "c.tab.cpp"
     break;
 
   case 265: /* jump_statement: BREAK ';'  */
 #line 555 "c.y"
                     { (yyval.base_node) = new BreakStatementNode(); }
-#line 3242 "c.tab.cpp"
+#line 3236 "c.tab.cpp"
     break;
 
   case 266: /* jump_statement: RETURN ';'  */
 #line 556 "c.y"
                      { (yyval.base_node) = new ReturnStatementNode(new NullPtrNode()); }
-#line 3248 "c.tab.cpp"
+#line 3242 "c.tab.cpp"
     break;
 
   case 267: /* jump_statement: RETURN expression ';'  */
 #line 557 "c.y"
                                 { (yyval.base_node) = new ReturnStatementNode((yyvsp[-1].base_node)); }
-#line 3254 "c.tab.cpp"
+#line 3248 "c.tab.cpp"
     break;
 
   case 268: /* translation_unit: external_declaration  */
 #line 561 "c.y"
                                {(yyval.base_node) = new TranslationUnitNode() ;root = (yyval.base_node); root->addChild((yyvsp[0].base_node));}
-#line 3260 "c.tab.cpp"
+#line 3254 "c.tab.cpp"
     break;
 
   case 269: /* translation_unit: translation_unit external_declaration  */
 #line 562 "c.y"
                                                 {(yyval.base_node) = (yyvsp[-1].base_node); (yyvsp[-1].base_node)->addChild((yyvsp[0].base_node));}
-#line 3266 "c.tab.cpp"
+#line 3260 "c.tab.cpp"
     break;
 
   case 270: /* external_declaration: function_definition  */
 #line 566 "c.y"
                               {(yyval.base_node) = (yyvsp[0].base_node);}
-#line 3272 "c.tab.cpp"
+#line 3266 "c.tab.cpp"
     break;
 
   case 271: /* external_declaration: declaration  */
 #line 567 "c.y"
                       {(yyval.base_node) = (yyvsp[0].base_node);}
-#line 3278 "c.tab.cpp"
+#line 3272 "c.tab.cpp"
     break;
 
   case 272: /* function_definition: declaration_specifiers declarator declaration_list compound_statement  */
 #line 571 "c.y"
                                                                                 {(yyval.base_node) = new FunctionDefinitionNode((yyvsp[-3].base_node),(yyvsp[-2].base_node),(yyvsp[-1].base_node),(yyvsp[0].base_node)); }
-#line 3284 "c.tab.cpp"
+#line 3278 "c.tab.cpp"
     break;
 
   case 273: /* function_definition: declaration_specifiers declarator compound_statement  */
 #line 572 "c.y"
                                                                {(yyval.base_node) = new FunctionDefinitionNode((yyvsp[-2].base_node),(yyvsp[-1].base_node),new NullPtrNode(),(yyvsp[0].base_node)); }
-#line 3290 "c.tab.cpp"
+#line 3284 "c.tab.cpp"
     break;
 
   case 274: /* declaration_list: declaration  */
 #line 576 "c.y"
                       {(yyval.base_node) = new DeclarationListNode(); (yyval.base_node)->addChild((yyvsp[0].base_node));}
-#line 3296 "c.tab.cpp"
+#line 3290 "c.tab.cpp"
     break;
 
   case 275: /* declaration_list: declaration_list declaration  */
 #line 577 "c.y"
                                        {(yyval.base_node) = (yyvsp[-1].base_node); (yyvsp[-1].base_node)->addChild((yyvsp[0].base_node));}
-#line 3302 "c.tab.cpp"
+#line 3296 "c.tab.cpp"
     break;
 
 
-#line 3306 "c.tab.cpp"
+#line 3300 "c.tab.cpp"
 
       default: break;
     }

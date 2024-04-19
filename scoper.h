@@ -18,18 +18,307 @@ enum ActualValueType { INTEGER, FLOATING, STRING, BOOLEAN, POINTER, NO_VALUE };
 
 struct m_Value {
   ActualValueType type;
-  union {
-    int i;
-    float f;
-    std::string s;
-    bool b;
-    void *p;
-  };
+
+  int i;
+  double f;
+  std::string s;
+  bool b;
+  void *p;
 
   m_Value() : type(NO_VALUE), p(nullptr) {}
 
   ~m_Value() {}
   m_Value(int i) : type(INTEGER), i(i) {}
+  m_Value(float f) : type(FLOATING), f(f) {}
+  m_Value(double d) : type(FLOATING), f(d) {}
+  m_Value(const std::string &s) : type(STRING), s(s) {}
+
+  m_Value operator+(const m_Value &other) const {
+    if (type == INTEGER && other.type == INTEGER)
+      return m_Value(i + other.i);
+    else if (type == INTEGER && other.type == FLOATING)
+      return m_Value(i + other.f);
+    else if (type == FLOATING && other.type == INTEGER)
+      return m_Value(f + other.i);
+    else if (type == FLOATING && other.type == FLOATING)
+      return m_Value(f + other.f);
+    else
+      return m_Value();
+  }
+
+  m_Value operator-(const m_Value &other) const {
+    if (type == INTEGER && other.type == INTEGER)
+      return m_Value(i - other.i);
+    else if (type == INTEGER && other.type == FLOATING)
+      return m_Value(i - other.f);
+    else if (type == FLOATING && other.type == INTEGER)
+      return m_Value(f - other.i);
+    else if (type == FLOATING && other.type == FLOATING)
+      return m_Value(f - other.f);
+    else if (!s.empty() && !other.s.empty() && s == other.s)
+      return m_Value(0);
+    else
+      return m_Value();
+  }
+
+  m_Value operator*(const m_Value &other) const {
+    if (type == INTEGER && other.type == INTEGER)
+      return m_Value(i * other.i);
+    else if (type == INTEGER && other.type == FLOATING)
+      return m_Value(i * other.f);
+    else if (type == FLOATING && other.type == INTEGER)
+      return m_Value(f * other.i);
+    else if (type == FLOATING && other.type == FLOATING)
+      return m_Value(f * other.f);
+    else if (type == FLOATING && f == 0)
+      return m_Value(0.0);
+    else if (other.type == FLOATING && other.f == 0)
+      return m_Value(0.0);
+    else if (type == INTEGER && i == 0)
+      return m_Value(0);
+    else if (other.type == INTEGER && other.i == 0)
+      return m_Value(0);
+    else
+      return m_Value();
+  }
+
+  m_Value operator/(const m_Value &other) const {
+    if (type == INTEGER && other.type == INTEGER && other.i != 0)
+      return m_Value(i / other.i);
+    else if (type == INTEGER && other.type == FLOATING && other.f != 0.0)
+      return m_Value(i / other.f);
+    else if (type == FLOATING && other.type == INTEGER && other.i != 0)
+      return m_Value(f / other.i);
+    else if (type == FLOATING && other.type == FLOATING && other.f != 0.0)
+      return m_Value(f / other.f);
+
+    else if (!s.empty() && !other.s.empty() && s == other.s)
+      return m_Value(1);
+    else
+      return m_Value();
+  }
+
+  m_Value operator%(const m_Value &other) const {
+    if (type == INTEGER && other.type == INTEGER && other.i != 0)
+      return m_Value(i % other.i);
+
+    else if (!s.empty() && !other.s.empty() && s == other.s)
+      return m_Value(0);
+    else
+      return m_Value();
+  }
+
+  m_Value operator<<(const m_Value &other) const {
+    if (type == INTEGER && other.type == INTEGER)
+
+      return m_Value(i << other.i);
+    else if (other.type == INTEGER && other.i > 64)
+      return m_Value(0);
+
+    else
+      return m_Value();
+  }
+
+  m_Value operator>>(const m_Value &other) const {
+    if (type == INTEGER && other.type == INTEGER)
+      return m_Value(i >> other.i);
+
+    else
+      return m_Value();
+  }
+
+  m_Value operator!=(const m_Value &other) const {
+    if (type == INTEGER && other.type == INTEGER)
+      return m_Value(i != other.i);
+    else if (type == INTEGER && other.type == FLOATING)
+      return m_Value(i != other.f);
+    else if (type == FLOATING && other.type == INTEGER)
+      return m_Value(f != other.i);
+    else if (type == FLOATING && other.type == FLOATING)
+      return m_Value(f != other.f);
+    else if (!s.empty() && !other.s.empty() && s == other.s)
+      return m_Value(0);
+    else
+      return m_Value();
+  }
+  m_Value operator==(const m_Value &other) const {
+    if (type == INTEGER && other.type == INTEGER)
+      return m_Value(i == other.i);
+    else if (type == INTEGER && other.type == FLOATING)
+      return m_Value(i == other.f);
+    else if (type == FLOATING && other.type == INTEGER)
+      return m_Value(f == other.i);
+    else if (type == FLOATING && other.type == FLOATING)
+      return m_Value(f == other.f);
+
+    else if (!s.empty() && !other.s.empty() && s == other.s)
+      return m_Value(1);
+    else
+      return m_Value();
+  }
+
+  m_Value operator>(const m_Value &other) const {
+    if (type == INTEGER && other.type == INTEGER)
+      return m_Value(i > other.i);
+    else if (type == INTEGER && other.type == FLOATING)
+      return m_Value(i > other.f);
+    else if (type == FLOATING && other.type == INTEGER)
+      return m_Value(f > other.i);
+    else if (type == FLOATING && other.type == FLOATING)
+      return m_Value(f > other.f);
+    else if (!s.empty() && !other.s.empty() && s == other.s)
+      return m_Value(0);
+    else
+      return m_Value();
+  }
+
+  m_Value operator>=(const m_Value &other) const {
+    if (type == INTEGER && other.type == INTEGER)
+      return m_Value(i >= other.i);
+    else if (type == INTEGER && other.type == FLOATING)
+      return m_Value(i >= other.f);
+    else if (type == FLOATING && other.type == INTEGER)
+      return m_Value(f >= other.i);
+    else if (type == FLOATING && other.type == FLOATING)
+      return m_Value(f >= other.f);
+    else if (!s.empty() && !other.s.empty() && s == other.s)
+      return m_Value(1);
+    else
+      return m_Value();
+  }
+
+  m_Value operator<(const m_Value &other) const {
+    if (type == INTEGER && other.type == INTEGER)
+      return m_Value(i < other.i);
+    else if (type == INTEGER && other.type == FLOATING)
+      return m_Value(i < other.f);
+    else if (type == FLOATING && other.type == INTEGER)
+      return m_Value(f < other.i);
+    else if (type == FLOATING && other.type == FLOATING)
+      return m_Value(f < other.f);
+    else if (!s.empty() && !other.s.empty() && s == other.s)
+      return m_Value(0);
+    else
+      return m_Value();
+  }
+
+  m_Value operator<=(const m_Value &other) const {
+    if (type == INTEGER && other.type == INTEGER)
+      return m_Value(i <= other.i);
+    else if (type == INTEGER && other.type == FLOATING)
+      return m_Value(i <= other.f);
+    else if (type == FLOATING && other.type == INTEGER)
+      return m_Value(f <= other.i);
+    else if (type == FLOATING && other.type == FLOATING)
+      return m_Value(f <= other.f);
+    else if (!s.empty() && !other.s.empty() && s == other.s)
+      return m_Value(1);
+    else
+      return m_Value();
+  }
+
+  m_Value operator&(const m_Value &other) const {
+    if (type == INTEGER && other.type == INTEGER)
+      return m_Value(i & other.i);
+    else
+      return m_Value();
+  }
+
+  m_Value operator|(const m_Value &other) const {
+    if (type == INTEGER && other.type == INTEGER)
+      return m_Value(i | other.i);
+    else
+      return m_Value();
+  }
+
+  m_Value operator^(const m_Value &other) const {
+    if (type == INTEGER && other.type == INTEGER)
+      return m_Value(i ^ other.i);
+    else if (!s.empty() && !other.s.empty() && s == other.s)
+      return m_Value(0);
+
+    else
+      return m_Value();
+  }
+
+  m_Value operator-() const {
+    if (type == INTEGER)
+      return m_Value(-i);
+    else if (type == FLOATING)
+      return m_Value(-f);
+    else
+      return m_Value();
+  }
+
+  m_Value operator+() const { return *this; }
+
+  m_Value operator!() const {
+    if (type == INTEGER)
+      return m_Value(!i);
+    else if (type == FLOATING)
+      return m_Value(!f);
+    else
+      return m_Value();
+  }
+
+  m_Value operator~() const {
+    if (type == INTEGER)
+      return m_Value(~i);
+    else
+      return m_Value();
+  }
+
+  m_Value operator++() {
+    if (type == INTEGER) {
+      ++i;
+      return *this;
+    } else if (type == FLOATING) {
+      ++f;
+      return *this;
+    } else {
+      return m_Value();
+    }
+  }
+
+  m_Value operator--() {
+    if (type == INTEGER) {
+      --i;
+      return *this;
+    } else if (type == FLOATING) {
+      --f;
+      return *this;
+    } else {
+      return m_Value();
+    }
+  }
+
+  m_Value operator++(int) {
+    if (type == INTEGER) {
+      m_Value temp(i);
+      i++;
+      return temp;
+    } else if (type == FLOATING) {
+      m_Value temp(f);
+      f++;
+      return temp;
+    } else {
+      return m_Value();
+    }
+  }
+
+  m_Value operator--(int) {
+    if (type == INTEGER) {
+      m_Value temp(i);
+      i--;
+      return temp;
+    } else if (type == FLOATING) {
+      m_Value temp(f);
+      f--;
+      return temp;
+    } else {
+      return m_Value();
+    }
+  }
 
   m_Value(const m_Value &other) : type(other.type) {
     switch (other.type) {
@@ -53,8 +342,6 @@ struct m_Value {
       break;
     }
   }
-
-  m_Value(const std::string &s) : type(STRING), s(s) {}
 
   m_Value &operator=(const m_Value &other) {
     if (this != &other) {

@@ -49,7 +49,6 @@ static bool is_declaration_global = false;
 
 static SpecifierEnum dec_type_for_optimisation;
 
-
 static void make_bool(llvm::Value *&conditionValue) {
 
   if (conditionValue->getType()->getTypeID() == llvm::Type::IntegerTyID) {
@@ -88,12 +87,14 @@ static void make_store_compatible(llvm::Value *&lhsAddr,
         }
         cout << "Adjusted RHSValue size to match the type of lhsAddr" << endl;
       }
-    }else if(lhsAddr->getType()->getPointerElementType()->isDoubleTy() and
-           rhsValue->getType()->isIntegerTy()){
-      rhsValue = codeGenerator.getBuilder().CreateSIToFP(rhsValue, lhsAddr->getType()->getPointerElementType());
-    }else if(lhsAddr->getType()->getPointerElementType()->isIntegerTy() and
-         rhsValue->getType()->isDoubleTy()){
-      rhsValue = codeGenerator.getBuilder().CreateFPToSI(rhsValue, lhsAddr->getType()->getPointerElementType());
+    } else if (lhsAddr->getType()->getPointerElementType()->isDoubleTy() and
+               rhsValue->getType()->isIntegerTy()) {
+      rhsValue = codeGenerator.getBuilder().CreateSIToFP(
+          rhsValue, lhsAddr->getType()->getPointerElementType());
+    } else if (lhsAddr->getType()->getPointerElementType()->isIntegerTy() and
+               rhsValue->getType()->isDoubleTy()) {
+      rhsValue = codeGenerator.getBuilder().CreateFPToSI(
+          rhsValue, lhsAddr->getType()->getPointerElementType());
     }
   }
 
@@ -171,14 +172,11 @@ public:
 
   virtual ~ASTNode() {}
 
+  /* ASTNode(const ASTNode &) = delete; */
+
   NodeType getNodeType() const { return type; }
 
-  virtual string dump_ast(int depth = 0) const {
-
-    return formatSpacing(depth) + "Interface Node \n";
-    // Implement this method to dump the AST as a string
-  }
-
+  virtual string dump_ast(int depth = 0) const = 0;
   void addChild(ASTNode *child) { children.push_back(child); }
 
   vector<ASTNode *> getChildren() { return children; }
@@ -195,7 +193,7 @@ public:
     return true;
   }
 
-  virtual m_Value get() {
+  virtual m_Value get() const {
     throw std::runtime_error("Unimplemented get() function.");
   }
 
@@ -205,9 +203,9 @@ public:
     throw std::runtime_error("Unimplemented codegen() function.");
   }
 
-  virtual ASTNode *optimise() {}
+  virtual ASTNode *optimise() const = 0;
 
-  virtual m_Value get_value_if_possible() {}
+  virtual m_Value get_value_if_possible() const { return m_Value(); }
 
   virtual void buildFunctionParams(llvm::Function *function_decl) {
     cout << "buildFunctionParams called on base class | "
@@ -283,12 +281,126 @@ public:
 
   bool check_semantics() { return true; }
 
+  ASTNode *optimise() const {
+    auto ret = new NullPtrNode(*this);
+    return ret;
+  }
+
+  m_Value get_value_if_possible() const { return m_Value(); }
+
   llvm::Value *codegen() {
     cout << "Codegen called for NullPtrNode " << endl;
     return nullptr;
   }
 
-  m_Value get() { throw std::runtime_error("get() called on a NullPtr."); }
+  m_Value get() const {
+    throw std::runtime_error("get() called on a NullPtr.");
+  }
+};
+
+class IConstantNode : public ASTNode {
+public:
+  IConstantNode(int value) : ASTNode(NodeType::IConstant), value(value) {}
+
+  string dump_ast(int depth = 0) const {
+    string result = formatSpacing(depth);
+    result += "Integer:" + to_string(value) + "\n";
+    return result;
+  }
+
+  m_Value get_value_if_possible() const { return m_Value(value); }
+
+  ASTNode *optimise() const {
+    auto ret = new IConstantNode(*this);
+    ret->value = value;
+    return ret;
+  }
+
+  Value *codegen() {
+    return llvm::ConstantInt::get(codeGenerator.getContext(),
+                                  llvm::APInt(32, value));
+  }
+
+public:
+  int value;
+};
+
+class FConstantNode : public ASTNode {
+public:
+  FConstantNode(float value) : ASTNode(NodeType::FConstant), value(value) {}
+
+  string dump_ast(int depth = 0) const {
+    string result = formatSpacing(depth);
+    result += "Float:" + to_string(value) + "\n";
+    return result;
+  }
+
+  m_Value get_value_if_possible() const { return m_Value(value); }
+
+  ASTNode *optimise() const {
+    auto ret = new FConstantNode(*this);
+    ret->value = value;
+    return ret;
+  }
+
+  Value *codegen() {
+
+    return llvm::ConstantFP::get(codeGenerator.getContext(),
+                                 llvm::APFloat(value));
+  }
+
+public:
+  float value;
+};
+
+class StringNode : public ASTNode {
+public:
+  StringNode(string value) : ASTNode(NodeType::String), value(value) {}
+
+  string dump_ast(int depth = 0) const {
+    string result = formatSpacing(depth);
+    result += "String Literal : " + value + " \n";
+    return result;
+  }
+
+  ASTNode *optimise() const {
+    auto ret = new StringNode(*this);
+    ret->value = value;
+    return ret;
+  }
+
+  Value *codegen() {
+
+    if (value[0] == '\'') {
+      char charValue = value[1]; // Assuming the character is the second
+                                 // character after the single quote
+                                 //
+      cout << "Hi, here to print " << charValue << endl;
+
+      return llvm::ConstantInt::get(codeGenerator.getContext(),
+                                    llvm::APInt(8, charValue));
+    }
+
+    value = convertRawString(value);
+
+    cout << "Hi, here to print " << value << endl;
+
+    llvm::LLVMContext &context = codeGenerator.global_module->getContext();
+
+    llvm::Constant *strConstant =
+        llvm::ConstantDataArray::getString(context, value);
+    llvm::GlobalVariable *strVar = new llvm::GlobalVariable(
+        *codeGenerator.global_module, strConstant->getType(), true,
+        llvm::GlobalValue::ExternalLinkage, strConstant, "str");
+
+    strVar->setConstant(false);
+
+    return codeGenerator.getBuilder().CreatePointerCast(
+        strVar, codeGenerator.getBuilder().getInt8PtrTy());
+  }
+
+public:
+  string value;
 };
 
 class TranslationUnitNode : public ASTNode {
@@ -308,13 +420,18 @@ public:
     return true;
   }
 
-  m_Value get_value_if_possible() { return m_Value(); }
+  m_Value get_value_if_possible() const { return m_Value(); }
 
-  ASTNode *optimise() {
-    for (auto &child : children) {
+  ASTNode *optimise() const {
+
+    auto ret = new TranslationUnitNode(*this);
+
+    for (auto &child : ret->children) {
+
+      get_as_lvalue = false;
       child = child->optimise();
     }
-    return this;
+    return ret;
   }
 
   Value *codegen() {
@@ -324,6 +441,7 @@ public:
       function_params.clear();
       global_is_variadic = false;
       labels.clear();
+      get_as_lvalue = false;
       is_declaration_global = true;
       child->codegen();
     }
@@ -351,6 +469,13 @@ public:
                           {declaration_specifiers, declarator, declaration_list,
                            compound_statement},
                           depth, false);
+  }
+
+  ASTNode *optimise() const {
+    auto ret = new FunctionDefinitionNode(*this);
+
+    ret->compound_statement = compound_statement->optimise();
+    return ret;
   }
 
   bool check_semantics() {
@@ -381,12 +506,6 @@ public:
     scoperStack.pop();
 
     return true;
-  }
-
-
-  ASTNode* optimise() {
-    compound_statement = compound_statement->optimise();
-    return this;
   }
 
   // Got rid of the functions map here, and used the module insteads
@@ -473,12 +592,13 @@ public:
         "Checking Semantics for declaration specifiers does not make sense");
   }
 
-
-  ASTNode* optimise(){
-    for(auto child: children){
-child->optimise();
+  ASTNode *optimise() const {
+    auto ret = new DeclarationSpecifiersNode(*this);
+    for (auto child : ret->children) {
+      child->optimise();
     }
-    return this;;
+    return ret;
+    ;
   }
 
   llvm::Type *getValueType() {
@@ -512,10 +632,18 @@ public:
         "Checking Semantics for specifiers does not make sense");
   }
 
-  ASTNode* optimise(){
+  ASTNode *optimise() const {
+    auto ret = new SpecifierNode(*this);
     switch (specifier) {
-     case SpecifierEnum::SHORT
+    case SpecifierEnum::FLOAT:
+    case SpecifierEnum::DOUBLE:
+      dec_type_for_optimisation = SpecifierEnum::DOUBLE;
+      break;
+    default:
+      dec_type_for_optimisation = SpecifierEnum::INT;
     }
+
+    return ret;
   }
 
   llvm::Type *getValueType() {
@@ -544,11 +672,12 @@ public:
     return dumpParameters(this, children, depth, true);
   }
 
-  ASTNode* optimise() {
-    for (auto &child : children) {
+  ASTNode *optimise() const {
+    auto ret = new CompoundStatementNode(*this);
+    for (auto &child : ret->children) {
       child = child->optimise();
     }
-    return this;
+    return ret;
   }
 
   bool check_semantics() {
@@ -579,6 +708,13 @@ public:
 
   string dump_ast(int depth = 0) const {
     return dumpParameters(this, {label, statement}, depth, false);
+  }
+
+  m_Value get_value_if_possible() const { return m_Value(); }
+  ASTNode *optimise() const {
+    auto ret = new LabelStatementNode(*this);
+    ret->statement = statement->optimise();
+    return ret;
   }
 
   Value *codegen() {
@@ -627,6 +763,14 @@ public:
     return dumpParameters(this, {constant_expression, statement}, depth, false);
   }
 
+  m_Value get_value_if_possible() const { return m_Value(); }
+  ASTNode *optimise() const {
+    auto ret = new CaseLabelStatementNode(*this);
+    ret->constant_expression = constant_expression->optimise();
+    ret->statement = statement->optimise();
+    return ret;
+  }
+
 public:
   ASTNode *constant_expression;
   ASTNode *statement;
@@ -636,6 +780,13 @@ class DefaultLabelStatementNode : public ASTNode {
 public:
   DefaultLabelStatementNode(ASTNode *statement)
       : ASTNode(NodeType::DefaultLabelStatement), statement(statement) {}
+
+  m_Value get_value_if_possible() const { return m_Value(); }
+  ASTNode *optimise() const {
+    auto ret = new DefaultLabelStatementNode(*this);
+    ret->statement = statement->optimise();
+    return ret;
+  }
 
   string dump_ast(int depth = 0) const {
     return dumpParameters(this, {statement}, depth, false);
@@ -655,6 +806,25 @@ public:
   string dump_ast(int depth = 0) const {
     return dumpParameters(this, {expression, statement, else_statement}, depth,
                           false);
+  }
+
+  m_Value get_value_if_possible() const { return m_Value(); }
+
+  ASTNode *optimise() const {
+
+    auto ret = new IfElseStatementNode(*this);
+
+    ret->expression = expression->optimise();
+    ret->statement = statement->optimise();
+    ret->else_statement = else_statement->optimise();
+    m_Value val = expression->get_value_if_possible();
+    if (val.type == ActualValueType::INTEGER) {
+      return val.i ? ret->statement : ret->else_statement;
+    }
+    if (val.type == ActualValueType::FLOATING) {
+      return val.f ? ret->statement : ret->else_statement;
+    }
+    return ret;
   }
 
   bool check_semantics() {
@@ -740,6 +910,14 @@ public:
 
   string dump_ast(int depth = 0) const {
     return dumpParameters(this, {expression, statement}, depth, false);
+  }
+
+  m_Value get_value_if_possible() const { return m_Value(); }
+  ASTNode *optimise() const {
+    auto ret = new SwitchStatementNode(*this);
+    ret->expression = expression->optimise();
+    ret->statement = statement->optimise();
+    return ret;
   }
 
   bool check_semantics() {
@@ -845,6 +1023,29 @@ public:
     return dumpParameters(this, {expression, statement}, depth, false);
   }
 
+  m_Value get_value_if_possible() const { return m_Value(); }
+  ASTNode *optimise() const {
+    auto ret = new WhileStatementNode(*this);
+    auto expression_copy = expression->optimise();
+    ret->statement = statement->optimise();
+
+    m_Value val = expression_copy->get_value_if_possible();
+
+    if (val.type == ActualValueType::INTEGER) {
+      if (val.i == 0) {
+        return new NullPtrNode();
+      }
+    }
+
+    if (val.type == ActualValueType::FLOATING) {
+      if (val.f == 0) {
+        return new NullPtrNode();
+      }
+    }
+
+    return ret;
+  }
+
   bool check_semantics() {
     if (!expression->check_semantics()) {
       return false;
@@ -910,6 +1111,18 @@ public:
 
   string dump_ast(int depth = 0) const {
     return dumpParameters(this, {statement, expression}, depth, false);
+  }
+
+  m_Value get_value_if_possible() const { return m_Value(); }
+  ASTNode *optimise() const {
+    auto ret = new DoWhileStatementNode(*this);
+    ret->statement = statement->optimise();
+
+    // Can't do the same optimisation as while statement here because of break
+    // and continue
+
+    return ret;
+    ;
   }
 
   bool check_semantics() {
@@ -983,6 +1196,34 @@ public:
   string dump_ast(int depth = 0) const {
     return dumpParameters(
         this, {expression1, expression2, expression3, statement}, depth, false);
+  }
+
+  m_Value get_value_if_possible() const { return m_Value(); }
+
+  ASTNode *optimise() const {
+
+    auto ret = new ForStatementNode(*this);
+
+    ret->expression1 = expression1->optimise();
+    auto expression2_copy = expression2->optimise();
+    ret->expression3 = expression3->optimise();
+
+    m_Value val = expression2_copy->get_value_if_possible();
+
+    if (val.type == ActualValueType::INTEGER) {
+      if (val.i == 0) {
+        return new NullPtrNode();
+      }
+    }
+
+    if (val.type == ActualValueType::FLOATING) {
+      if (val.f == 0) {
+        return new NullPtrNode();
+      }
+    }
+
+    ret->statement = statement->optimise();
+    return ret;
   }
 
   bool check_semantics() {
@@ -1112,6 +1353,10 @@ public:
     return dumpParameters(this, {identifier}, depth, false);
   }
 
+  ASTNode *optimise() const { return new GotoStatementNode(*this); }
+
+  m_Value get_value_if_possible() const { return m_Value(); }
+
   Value *codegen() {
 
     m_Value label = identifier->get();
@@ -1144,6 +1389,9 @@ public:
     return dumpParameters(this, {}, depth, false);
   }
 
+  m_Value get_value_if_possible() const { return m_Value(); }
+  ASTNode *optimise() const { return new ContinueStatementNode(*this); }
+
   Value *codegen() {
 
     if (loop_block == nullptr) {
@@ -1162,6 +1410,9 @@ public:
   string dump_ast(int depth = 0) const {
     return dumpParameters(this, {}, depth, false);
   }
+
+  ASTNode *optimise() const { return new BreakStatementNode(*this); }
+  m_Value get_value_if_possible() const { return m_Value(); }
 
   Value *codegen() {
     if (merge_block == nullptr) {
@@ -1183,6 +1434,26 @@ public:
   }
 
   bool check_semantics() { return expression->check_semantics(); }
+
+  ASTNode *optimise() const {
+    auto ret = new ReturnStatementNode(*this);
+    ret->expression = expression->optimise();
+
+    m_Value v = expression->get_value_if_possible();
+
+    if (v.type == ActualValueType::INTEGER) {
+      return new IConstantNode(v.i);
+    }
+    if (v.type == ActualValueType::FLOATING) {
+      return new FConstantNode(v.f);
+    }
+
+    return ret;
+  }
+
+  m_Value get_value_if_possible() const {
+    return expression->get_value_if_possible();
+  }
 
   Value *codegen() {
     if (expression->getNodeType() != NodeType::Unimplemented) {
@@ -1218,11 +1489,13 @@ public:
     return dumpParameters(this, children, depth, true);
   }
 
-  ASTNode* optimise(){
-    for (auto &child : children) {
+  ASTNode *optimise() const {
+    auto ret = new DeclarationListNode(*this);
+    for (auto &child : ret->children) {
       child = child->optimise();
     }
-    return this;;
+    return ret;
+    ;
   }
 };
 
@@ -1241,11 +1514,11 @@ public:
 
   bool check_semantics() { return init_declarator_list->check_semantics(); }
 
-
-  ASTNode* optimise() {
-    declaration_specifiers = declaration_specifiers->optimise();
-    init_declarator_list = init_declarator_list->optimise();
-    return this;
+  ASTNode *optimise() const {
+    auto ret = new DeclarationNode(*this);
+    ret->declaration_specifiers = declaration_specifiers->optimise();
+    ret->init_declarator_list = init_declarator_list->optimise();
+    return ret;
   }
 
   Value *codegen() {
@@ -1272,8 +1545,10 @@ public:
     return dumpParameters(this, {declarator, initializer}, depth, false);
   }
 
-  ASTNode* optimise(){
-
+  ASTNode *optimise() const {
+    auto ret = new InitDeclartorNode(*this);
+    ret->initializer = initializer->optimise();
+    return ret;
   }
 
   bool check_semantics() {
@@ -1379,6 +1654,14 @@ public:
     return true;
   }
 
+  ASTNode *optimise() const {
+    auto ret = new InitDeclartorListNode(*this);
+    for (auto &child : ret->children) {
+      child = child->optimise();
+    }
+    return ret;
+  }
+
   Value *codegen() {
     for (auto child : children) {
       llvm::Type *old_type = declaration_type;
@@ -1406,7 +1689,15 @@ public:
 
   bool check_semantics() { return direct_declarator->check_semantics(); }
 
-  m_Value get() { return direct_declarator->get(); }
+  m_Value get_value_if_possible() const { return m_Value(); }
+
+  ASTNode *optimise() const { return new DeclaratorNode(*this); }
+
+  m_Value get() const {
+    m_Value val = direct_declarator->get();
+    val.s = pointer->get().s + val.s;
+    return direct_declarator->get();
+  }
 
   void fixFunctionParams() {
     llvm::Type *old_type = declaration_type;
@@ -1440,6 +1731,20 @@ class PointerNode : public ASTNode {
 public:
   PointerNode(ASTNode *pointer)
       : ASTNode(NodeType::Pointer), pointer(pointer) {}
+
+  m_Value get() const {
+    m_Value val = pointer->get();
+    val.s += "*";
+    return val;
+  }
+
+  m_Value get_value_if_possible() const { return m_Value(); }
+
+  ASTNode *optimise() const {
+    auto ret = new PointerNode(*this);
+    ret->pointer = pointer->optimise();
+    return ret;
+  }
 
   string dump_ast(int depth = 0) const {
     string result = formatSpacing(depth) + "*\n";
@@ -1477,7 +1782,23 @@ public:
 
   void modifyDeclarationType() { direct_declarator->modifyDeclarationType(); }
 
-  m_Value get() { return direct_declarator->get(); }
+  m_Value get_value_if_possible() const {
+    m_Value val = get();
+    return codeGenerator.get_mval(val.s);
+  }
+
+  ASTNode *optimise() const {
+
+    auto ret = new ArrayDeclaratorNode(*this);
+    ret->assignment_expression = assignment_expression->optimise();
+    return ret;
+  }
+
+  m_Value get() const {
+    m_Value val = direct_declarator->get();
+    val.s += "[" + assignment_expression->dump_ast() + "]";
+    return val;
+  }
 
   Value *codegen() {
 
@@ -1538,7 +1859,14 @@ public:
                           false);
   }
 
-  m_Value get() { return direct_declarator->get(); }
+  m_Value get() const { return direct_declarator->get(); }
+
+  m_Value get_value_if_possible() const { return m_Value(); }
+
+  ASTNode *optimise() const {
+    auto ret = new FunctionDeclarationNode(*this);
+    return ret;
+  }
 
   bool check_semantics() { return parameter_type_list->check_semantics(); }
 
@@ -1602,6 +1930,13 @@ public:
     return dumpParameters(this, children, depth, true);
   }
 
+  m_Value get_value_if_possible() const { return m_Value(); }
+
+  ASTNode *optimise() const {
+    auto ret = new ParameterListNode(*this);
+    return ret;
+  }
+
   bool check_semantics() {
     for (auto child : children) {
       if (!child->check_semantics()) {
@@ -1635,6 +1970,13 @@ public:
       : ASTNode(NodeType::ParameterDeclaration),
         declaration_specifiers(declaration_specifiers), declarator(declarator) {
   }
+
+  ASTNode *optimise() const {
+    auto ret = new ParameterDeclarationNode(*this);
+    return ret;
+  }
+
+  m_Value get_value_if_possible() const { return m_Value(); }
 
   string dump_ast(int depth = 0) const {
     return dumpParameters(this, {declaration_specifiers, declarator}, depth,
@@ -1680,11 +2022,18 @@ public:
     return result;
   }
 
-  m_Value get() { return m_Value(name); }
+  m_Value get() const { return m_Value(name); }
 
   bool check_semantics() { return scoperStack.exists(name); }
 
   void modifyDeclarationType() {}
+
+  m_Value get_value_if_possible() const { return codeGenerator.get_mval(name); }
+
+  ASTNode *optimise() const {
+    auto ret = new IdentifierNode(*this);
+    return ret;
+  }
 
   Value *codegen() {
 
@@ -1710,30 +2059,27 @@ private:
   string name;
 };
 
-class IdentifierListNode : public ASTNode {
-public:
-  IdentifierListNode() : ASTNode(NodeType::IdentifierList) {}
-
-  string dump_ast(int depth = 0) const {
-    return dumpParameters(this, children, depth, true);
-  }
-
-  bool check_semantics() {
-    for (auto child : children) {
-      if (!child->check_semantics()) {
-        return false;
-      }
-    }
-    return true;
-  }
-};
-
 class ExpressionListNode : public ASTNode {
 public:
   ExpressionListNode() : ASTNode(NodeType::ExpressionList) {}
 
   string dump_ast(int depth = 0) const {
     return dumpParameters(this, children, depth, true);
+  }
+
+  m_Value get_value_if_possible() const {
+    if (children.size() == 1) {
+      return children[0]->get_value_if_possible();
+    }
+    return m_Value();
+  }
+
+  ASTNode *optimise() const {
+    auto ret = new ExpressionListNode(*this);
+    for (auto &child : ret->children) {
+      child = child->optimise();
+    }
+    return ret;
   }
 
   bool check_semantics() {
@@ -1774,6 +2120,89 @@ public:
   bool check_semantics() {
     return unary_expression->check_semantics() &&
            assignment_expression->check_semantics();
+  }
+
+  m_Value get_value_if_possible() const {
+    return unary_expression->get_value_if_possible();
+  }
+
+  ASTNode *optimise() const {
+
+    auto ret = new AssignmentExpressionNode(*this);
+
+    m_Value lhs_name = unary_expression->get();
+
+    ret->assignment_expression = assignment_expression->optimise();
+
+    m_Value rhs = ret->assignment_expression->get_value_if_possible();
+    m_Value lhs = ret->unary_expression->get_value_if_possible();
+
+    m_Value v = m_Value();
+
+    switch (assOp) {
+    case AssignmentOperator::ASSIGN: {
+      break;
+    }
+    case AssignmentOperator::ADD_ASSIGN: {
+      v = lhs + rhs;
+      break;
+    }
+    case AssignmentOperator::MUL_ASSIGN: {
+      v = lhs * rhs;
+      break;
+    }
+    case AssignmentOperator::DIV_ASSIGN: {
+      v = lhs / rhs;
+      break;
+    }
+    case AssignmentOperator::SUB_ASSIGN: {
+      v = lhs - rhs;
+      break;
+    }
+    case AssignmentOperator::MOD_ASSIGN: {
+      v = lhs % rhs;
+      break;
+    }
+    case AssignmentOperator::LEFT_ASSIGN: {
+      v = lhs << rhs;
+
+      break;
+    }
+    case AssignmentOperator::RIGHT_ASSIGN: {
+      v = lhs >> rhs;
+      break;
+    }
+    case AssignmentOperator::AND_ASSIGN: {
+      v = lhs & rhs;
+      break;
+    }
+    case AssignmentOperator::XOR_ASSIGN: {
+      v = lhs ^ rhs;
+      break;
+    }
+    case AssignmentOperator::OR_ASSIGN: {
+      v = lhs | rhs;
+      break;
+    }
+    }
+    if (v.type == ActualValueType::INTEGER) {
+      ret->assignment_expression = new IConstantNode(v.i);
+    } else if (v.type == ActualValueType::FLOATING) {
+      ret->assignment_expression = new FConstantNode(v.f);
+    }
+
+    if (v.type != NO_VALUE) {
+      ret->assOp = AssignmentOperator::ASSIGN;
+    }
+
+    v = ret->assignment_expression->get_value_if_possible();
+    if (ret->assOp == AssignmentOperator::ASSIGN) {
+      if (v.type != NO_VALUE) {
+        codeGenerator.put_mval(lhs_name.s, v);
+      }
+    }
+
+    return ret;
   }
 
   Value *codegen() override {
@@ -1856,6 +2285,10 @@ public:
       llvm::Value *lhsValLeft =
           codeGenerator.getBuilder().CreateLoad(lhsType, lhsAddr, "leftload");
       make_lhs_rhs_compatible(lhsValLeft, rhsValue);
+      if (rhsValue->getType()->getTypeID() != llvm::Type::IntegerTyID) {
+        throw std::runtime_error(
+            "Right hand side of AN operator is not an integer");
+      }
       llvm::Value *left = codeGenerator.getBuilder().CreateShl(
           lhsValLeft, rhsValue, "leftcreate");
       make_store_compatible(lhsAddr, left);
@@ -1867,6 +2300,10 @@ public:
       llvm::Value *lhsValRight =
           codeGenerator.getBuilder().CreateLoad(lhsType, lhsAddr, "rightload");
       make_lhs_rhs_compatible(lhsValRight, rhsValue);
+      if (rhsValue->getType()->getTypeID() != llvm::Type::IntegerTyID) {
+        throw std::runtime_error(
+            "Right hand side of AN operator is not an integer");
+      }
       llvm::Value *right = codeGenerator.getBuilder().CreateAShr(
           lhsValRight, rhsValue, "rightcreate");
       make_store_compatible(lhsAddr, right);
@@ -1877,6 +2314,12 @@ public:
       llvm::Value *lhsValAnd =
           codeGenerator.getBuilder().CreateLoad(lhsType, lhsAddr, "andload");
       make_lhs_rhs_compatible(lhsValAnd, rhsValue);
+
+      if (rhsValue->getType()->getTypeID() != llvm::Type::IntegerTyID) {
+        throw std::runtime_error(
+            "Right hand side of AN operator is not an integer");
+      }
+
       llvm::Value *and_val = codeGenerator.getBuilder().CreateAnd(
           lhsValAnd, rhsValue, "andcreate");
 
@@ -1889,6 +2332,10 @@ public:
       llvm::Value *lhsValXor =
           codeGenerator.getBuilder().CreateLoad(lhsType, lhsAddr, "xorload");
       make_lhs_rhs_compatible(lhsValXor, rhsValue);
+      if (rhsValue->getType()->getTypeID() != llvm::Type::IntegerTyID) {
+        throw std::runtime_error(
+            "Right hand side of AN operator is not an integer");
+      }
       llvm::Value *xor_val = codeGenerator.getBuilder().CreateXor(
           lhsValXor, rhsValue, "xorcreate");
       make_store_compatible(lhsAddr, xor_val);
@@ -1899,6 +2346,10 @@ public:
       llvm::Value *lhsValOr =
           codeGenerator.getBuilder().CreateLoad(lhsType, lhsAddr, "orload");
       make_lhs_rhs_compatible(lhsValOr, rhsValue);
+      if (rhsValue->getType()->getTypeID() != llvm::Type::IntegerTyID) {
+        throw std::runtime_error(
+            "Right hand side of AN operator is not an integer");
+      }
       llvm::Value *or_val =
           codeGenerator.getBuilder().CreateOr(lhsValOr, rhsValue, "orcreate");
       make_store_compatible(lhsAddr, or_val);
@@ -1932,6 +2383,25 @@ public:
   bool check_semantics() {
     return postfix_expression->check_semantics() &&
            expression->check_semantics();
+  }
+
+  m_Value get() const {
+    m_Value name = postfix_expression->get();
+    string exp = expression->dump_ast();
+    return m_Value(name.s + "[" + exp + "]");
+  }
+
+  m_Value get_value_if_possible() const {
+    return codeGenerator.get_mval(get().s);
+  }
+
+  ASTNode *optimise() const {
+    auto ret = new ArrayAccessNode(*this);
+    ret->postfix_expression = postfix_expression->optimise();
+
+    ret->expression = expression->optimise();
+
+    return ret;
   }
 
   Value *codegen() {
@@ -2020,6 +2490,9 @@ public:
            argument_expression_list->check_semantics();
   }
 
+  m_Value get_value_if_possible() const { return m_Value(); }
+  ASTNode *optimise() const { return new FunctionCallNode(*this); }
+
   Value *codegen() {
 
     string function_name = postfix_expression->get().s;
@@ -2059,6 +2532,13 @@ class ArgumentExpressionListNode : public ASTNode {
 public:
   ArgumentExpressionListNode() : ASTNode(NodeType::ArgumentExpressionList) {}
 
+  ASTNode *optimise() const {
+    auto ret = new ArgumentExpressionListNode(*this);
+    return ret;
+  }
+
+  m_Value get_value_if_possible() const { return m_Value(); }
+
   string dump_ast(int depth = 0) const {
     return dumpParameters(this, children, depth, true);
   }
@@ -2076,6 +2556,37 @@ public:
     result += unary_expression->dump_ast(depth + 1);
     result += formatSpacing(depth) + "} \n";
     return result;
+  }
+
+  m_Value get() {
+    string pref = un_op == UnaryOperator::MUL_OP ? "*" : "";
+    m_Value val = unary_expression->get();
+    return m_Value(pref + val.s);
+  }
+
+  m_Value get_value_if_possible() {
+    m_Value val = unary_expression->get_value_if_possible();
+    m_Value name = get();
+    switch (un_op) {
+    case UnaryOperator::MUL_OP:
+      return codeGenerator.get_mval(name.s);
+    case UnaryOperator::PLUS:
+      return val;
+    case UnaryOperator::MINUS:
+      return -val;
+    case UnaryOperator::LOGICAL_NOT:
+      return !val;
+    case UnaryOperator::BITWISE_NOT:
+      return ~val;
+    default:
+      return m_Value();
+    }
+  }
+
+  ASTNode *optimise() const {
+    auto ret = new UnaryExpressionNode(*this);
+    ret->unary_expression = unary_expression->optimise();
+    return ret;
   }
 
   Value *codegen() {
@@ -2183,23 +2694,6 @@ private:
   UnaryOperator un_op;
 };
 
-class MemberAccessNode : public ASTNode {
-public:
-  MemberAccessNode(ASTNode *postfix_expression, ASTNode *identifier)
-      : ASTNode(NodeType::MemberAccess), postfix_expression(postfix_expression),
-        identifier(identifier) {}
-
-  string dump_ast(int depth = 0) const {
-    return dumpParameters(this, {postfix_expression, identifier}, depth, false);
-  }
-
-  bool check_semantics() { return postfix_expression->check_semantics(); }
-
-private:
-  ASTNode *postfix_expression;
-  ASTNode *identifier;
-};
-
 class PostfixExpressionNode : public ASTNode {
 public:
   PostfixExpressionNode(ASTNode *primary_expression, UnaryOperator postFixOp)
@@ -2213,6 +2707,14 @@ public:
     result += formatSpacing(depth) + "} \n";
     return result;
   }
+
+  ASTNode *optimise() const {
+    auto ret = new PostfixExpressionNode(*this);
+    ret->primary_expression = primary_expression->optimise();
+    return ret;
+  }
+
+  m_Value get_value_if_possible() const { return m_Value(); }
 
   bool check_semantics() { return primary_expression->check_semantics(); }
 
@@ -2288,11 +2790,6 @@ private:
   UnaryOperator postFixOp;
 };
 
-class InitializerListNode : public ASTNode {
-public:
-  InitializerListNode() : ASTNode(NodeType::InitializerList) {}
-};
-
 class ConditionalExpressionNode : public ASTNode {
 public:
   ConditionalExpressionNode(ASTNode *logical_or_expression, ASTNode *expression,
@@ -2311,6 +2808,57 @@ public:
     return logical_or_expression->check_semantics() &&
            expression->check_semantics() &&
            conditional_expression->check_semantics();
+  }
+
+  m_Value get_value_if_possible() const {
+
+    m_Value logical_or = logical_or_expression->get_value_if_possible();
+
+    if (logical_or.type == ActualValueType::INTEGER) {
+      if (logical_or.i) {
+        return expression->get_value_if_possible();
+      } else {
+        return conditional_expression->get_value_if_possible();
+      }
+    }
+
+    if (logical_or.type == ActualValueType::FLOATING) {
+      if (logical_or.f) {
+        return expression->get_value_if_possible();
+      } else {
+        return conditional_expression->get_value_if_possible();
+      }
+    }
+
+    return m_Value();
+  }
+
+  ASTNode *optimise() const {
+
+    auto ret = new ConditionalExpressionNode(*this);
+    ret->logical_or_expression->optimise();
+    ret->expression = expression->optimise();
+    ret->conditional_expression = conditional_expression->optimise();
+
+    m_Value logical_or = logical_or_expression->get_value_if_possible();
+
+    if (logical_or.type == ActualValueType::INTEGER) {
+      if (logical_or.i) {
+        return ret->expression;
+      } else {
+        return ret->conditional_expression;
+      }
+    }
+
+    if (logical_or.type == ActualValueType::FLOATING) {
+      if (logical_or.f) {
+        return ret->expression;
+      } else {
+        return ret->conditional_expression;
+      }
+    }
+
+    return ret;
   }
 
   Value *codegen() {
@@ -2374,83 +2922,67 @@ private:
   ASTNode *conditional_expression;
 };
 
-class LogicalOrExpressionNode : public ASTNode {
-public:
-  LogicalOrExpressionNode(ASTNode *logical_or_expression,
-                          ASTNode *logical_and_expression)
-      : ASTNode(NodeType::LogicalOrExpression),
-        logical_or_expression(logical_or_expression),
-        logical_and_expression(logical_and_expression) {}
+/**/
+/*   Value *codegen() { */
+/*     Value *lhs = logical_or_expression->codegen(); */
+/*     Value *rhs = logical_and_expression->codegen(); */
+/*     if (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID) { */
+/*       lhs = codeGenerator.getBuilder().CreateIntCast( */
+/*           lhs, llvm::Type::getInt1Ty(codeGenerator.getContext()), true); */
+/*     } */
+/**/
+/*     if (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID) { */
+/*       rhs = codeGenerator.getBuilder().CreateIntCast( */
+/*           rhs, llvm::Type::getInt1Ty(codeGenerator.getContext()), true); */
+/*     } */
+/**/
+/*     return codeGenerator.getBuilder().CreateOr(lhs, rhs, "or"); */
+/*   } */
+/**/
+/* private: */
+/*   ASTNode *logical_or_expression; */
+/*   ASTNode *logical_and_expression; */
+/* }; */
 
-  string dump_ast(int depth = 0) const {
-    return dumpParameters(this, {logical_or_expression, logical_and_expression},
-                          depth, false);
-  }
-
-  bool check_semantics() {
-    return logical_or_expression->check_semantics() &&
-           logical_and_expression->check_semantics();
-  }
-
-  Value *codegen() {
-    Value *lhs = logical_or_expression->codegen();
-    Value *rhs = logical_and_expression->codegen();
-    if (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID) {
-      lhs = codeGenerator.getBuilder().CreateIntCast(
-          lhs, llvm::Type::getInt1Ty(codeGenerator.getContext()), true);
-    }
-
-    if (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID) {
-      rhs = codeGenerator.getBuilder().CreateIntCast(
-          rhs, llvm::Type::getInt1Ty(codeGenerator.getContext()), true);
-    }
-
-    return codeGenerator.getBuilder().CreateOr(lhs, rhs, "or");
-  }
-
-private:
-  ASTNode *logical_or_expression;
-  ASTNode *logical_and_expression;
-};
-
-class LogicalAndExpressionNode : public ASTNode {
-public:
-  LogicalAndExpressionNode(ASTNode *logical_and_expression,
-                           ASTNode *inclusive_or_expression)
-      : ASTNode(NodeType::LogicalAndExpression),
-        logical_and_expression(logical_and_expression),
-        inclusive_or_expression(inclusive_or_expression) {}
-
-  string dump_ast(int depth = 0) const {
-    return dumpParameters(
-        this, {logical_and_expression, inclusive_or_expression}, depth, false);
-  }
-
-  bool check_semantics() {
-    return logical_and_expression->check_semantics() &&
-           inclusive_or_expression->check_semantics();
-  }
-
-  Value *codegen() {
-    Value *lhs = logical_and_expression->codegen();
-    Value *rhs = inclusive_or_expression->codegen();
-
-    if (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID) {
-      lhs = codeGenerator.getBuilder().CreateIntCast(
-          lhs, llvm::Type::getInt1Ty(codeGenerator.getContext()), true);
-    }
-    if (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID) {
-      rhs = codeGenerator.getBuilder().CreateIntCast(
-          rhs, llvm::Type::getInt1Ty(codeGenerator.getContext()), true);
-    }
-
-    return codeGenerator.getBuilder().CreateAnd(lhs, rhs, "and");
-  }
-
-private:
-  ASTNode *logical_and_expression;
-  ASTNode *inclusive_or_expression;
-};
+/* class LogicalAndExpressionNode : public ASTNode { */
+/* public: */
+/*   LogicalAndExpressionNode(ASTNode *logical_and_expression, */
+/*                            ASTNode *inclusive_or_expression) */
+/*       : ASTNode(NodeType::LogicalAndExpression), */
+/*         logical_and_expression(logical_and_expression), */
+/*         inclusive_or_expression(inclusive_or_expression) {} */
+/**/
+/*   string dump_ast(int depth = 0) const { */
+/*     return dumpParameters( */
+/*         this, {logical_and_expression, inclusive_or_expression}, depth,
+ * false); */
+/*   } */
+/**/
+/*   bool check_semantics() { */
+/*     return logical_and_expression->check_semantics() && */
+/*            inclusive_or_expression->check_semantics(); */
+/*   } */
+/**/
+/*   Value *codegen() { */
+/*     Value *lhs = logical_and_expression->codegen(); */
+/*     Value *rhs = inclusive_or_expression->codegen(); */
+/**/
+/*     if (lhs->getType()->getTypeID() != llvm::Type::IntegerTyID) { */
+/*       lhs = codeGenerator.getBuilder().CreateIntCast( */
+/*           lhs, llvm::Type::getInt1Ty(codeGenerator.getContext()), true); */
+/*     } */
+/*     if (rhs->getType()->getTypeID() != llvm::Type::IntegerTyID) { */
+/*       rhs = codeGenerator.getBuilder().CreateIntCast( */
+/*           rhs, llvm::Type::getInt1Ty(codeGenerator.getContext()), true); */
+/*     } */
+/**/
+/*     return codeGenerator.getBuilder().CreateAnd(lhs, rhs, "and"); */
+/*   } */
+/**/
+/* private: */
+/*   ASTNode *logical_and_expression; */
+/*   ASTNode *inclusive_or_expression; */
+/* }; */
 
 class InclusiveOrExpressionNode : public ASTNode {
 public:
@@ -2468,6 +3000,40 @@ public:
   bool check_semantics() {
     return inclusive_or_expression->check_semantics() &&
            exclusive_or_expression->check_semantics();
+  }
+
+  m_Value get_value_if_possible() const {
+    m_Value lhs = inclusive_or_expression->get_value_if_possible();
+    m_Value rhs = exclusive_or_expression->get_value_if_possible();
+    if (lhs.type == ActualValueType::NO_VALUE ||
+        rhs.type == ActualValueType::NO_VALUE) {
+      return m_Value();
+    }
+
+    if (lhs.type != ActualValueType::INTEGER ||
+        rhs.type != ActualValueType::INTEGER) {
+      throw std::runtime_error("lhs or rhs is not an integer");
+    }
+
+    lhs.i = lhs.i | rhs.i;
+    return lhs;
+  }
+
+  ASTNode *optimise() const {
+    auto ret = new InclusiveOrExpressionNode(*this);
+    ret->inclusive_or_expression = inclusive_or_expression->optimise();
+    ret->exclusive_or_expression = exclusive_or_expression->optimise();
+
+    m_Value v = get_value_if_possible();
+
+    if (v.type == ActualValueType::INTEGER) {
+      return new IConstantNode(v.i);
+    }
+
+    if (v.type == ActualValueType::FLOATING) {
+      return new FConstantNode(v.f);
+    }
+    return ret;
   }
 
   Value *codegen() {
@@ -2507,6 +3073,38 @@ public:
            and_expression->check_semantics();
   }
 
+  m_Value get_value_if_possible() const {
+    m_Value lhs = exclusive_or_expression->get_value_if_possible();
+    m_Value rhs = and_expression->get_value_if_possible();
+    if (lhs.type == ActualValueType::NO_VALUE ||
+        rhs.type == ActualValueType::NO_VALUE) {
+      return m_Value();
+    }
+    if (lhs.type != ActualValueType::INTEGER ||
+        rhs.type != ActualValueType::INTEGER) {
+      throw std::runtime_error("lhs or rhs is not an integer");
+    }
+    lhs.i = lhs.i ^ rhs.i;
+    return lhs;
+  }
+
+  ASTNode *optimise() const {
+    auto ret = new ExclusiveOrExpressionNode(*this);
+    ret->exclusive_or_expression = exclusive_or_expression->optimise();
+    ret->and_expression = and_expression->optimise();
+
+    m_Value v = get_value_if_possible();
+
+    if (v.type == ActualValueType::INTEGER) {
+      return new IConstantNode(v.i);
+    }
+
+    if (v.type == ActualValueType::FLOATING) {
+      return new FConstantNode(v.f);
+    }
+    return ret;
+  }
+
   Value *codegen() {
     Value *lhs = exclusive_or_expression->codegen();
     Value *rhs = and_expression->codegen();
@@ -2540,6 +3138,35 @@ public:
   bool check_semantics() {
     return and_expression->check_semantics() &&
            equality_expression->check_semantics();
+  }
+
+  m_Value get_value_if_possible() const {
+    m_Value lhs = and_expression->get_value_if_possible();
+    m_Value rhs = equality_expression->get_value_if_possible();
+    if (lhs.type == ActualValueType::NO_VALUE ||
+        rhs.type == ActualValueType::NO_VALUE) {
+      return m_Value();
+    }
+    if (lhs.type != ActualValueType::INTEGER ||
+        rhs.type != ActualValueType::INTEGER) {
+      throw std::runtime_error("lhs or rhs is not an integer");
+    }
+    lhs.i = lhs.i & rhs.i;
+    return lhs;
+  }
+
+  ASTNode *optimise() const {
+    auto ret = new AndExpressionNode(*this);
+    ret->and_expression = and_expression->optimise();
+    ret->equality_expression = equality_expression->optimise();
+    m_Value v = get_value_if_possible();
+    if (v.type == ActualValueType::INTEGER) {
+      return new IConstantNode(v.i);
+    }
+    if (v.type == ActualValueType::FLOATING) {
+      return new FConstantNode(v.f);
+    }
+    return ret;
   }
 
   Value *codegen() {
@@ -2579,12 +3206,33 @@ public:
            relational_expression->check_semantics();
   }
 
+  m_Value get_value_if_possible() const {
+    m_Value lhs = equality_expression->get_value_if_possible();
+    m_Value rhs = relational_expression->get_value_if_possible();
+
+    return (lhs == rhs);
+  }
+
+  ASTNode *optimise() const {
+    auto ret = new EqualityExpressionNode(*this);
+    ret->equality_expression = equality_expression->optimise();
+    ret->relational_expression = relational_expression->optimise();
+    m_Value v = get_value_if_possible();
+    if (v.type == ActualValueType::INTEGER) {
+      return new IConstantNode(v.i);
+    }
+    if (v.type == ActualValueType::FLOATING) {
+      return new FConstantNode(v.f);
+    }
+    return ret;
+  }
+
   Value *codegen() {
     Value *lhs = equality_expression->codegen();
     Value *rhs = relational_expression->codegen();
 
     make_lhs_rhs_compatible(lhs, rhs);
-    if(lhs->getType()->getTypeID() == llvm::Type::DoubleTyID) {
+    if (lhs->getType()->getTypeID() == llvm::Type::DoubleTyID) {
       return codeGenerator.getBuilder().CreateFCmpOEQ(lhs, rhs, "equal");
     }
 
@@ -2614,13 +3262,34 @@ public:
            relational_expression->check_semantics();
   }
 
+  m_Value get_value_if_possible() const {
+    m_Value lhs = equality_expression->get_value_if_possible();
+    m_Value rhs = relational_expression->get_value_if_possible();
+
+    return (lhs != rhs);
+  }
+
+  ASTNode *optimise() const {
+    auto ret = new NonEqualityExpressionNode(*this);
+    ret->equality_expression = equality_expression->optimise();
+    ret->relational_expression = relational_expression->optimise();
+    m_Value v = get_value_if_possible();
+    if (v.type == ActualValueType::INTEGER) {
+      return new IConstantNode(v.i);
+    }
+    if (v.type == ActualValueType::FLOATING) {
+      return new FConstantNode(v.f);
+    }
+
+    return ret;
+  }
   Value *codegen() {
     Value *lhs = equality_expression->codegen();
     Value *rhs = relational_expression->codegen();
 
     make_lhs_rhs_compatible(lhs, rhs);
-    
-  if(lhs->getType()->getTypeID() == llvm::Type::DoubleTyID){
+
+    if (lhs->getType()->getTypeID() == llvm::Type::DoubleTyID) {
       return codeGenerator.getBuilder().CreateFCmpONE(lhs, rhs, "nequal");
     }
 
@@ -2650,16 +3319,36 @@ public:
            shift_expression->check_semantics();
   }
 
+  m_Value get_value_if_possible() const {
+    m_Value lhs = relational_expression->get_value_if_possible();
+    m_Value rhs = shift_expression->get_value_if_possible();
+
+    return (lhs < rhs);
+  }
+
+  ASTNode *optimise() const {
+    auto ret = new LessThanExpressionNode(*this);
+    ret->relational_expression = relational_expression->optimise();
+    ret->shift_expression = shift_expression->optimise();
+
+    m_Value v = get_value_if_possible();
+    if (v.type == ActualValueType::INTEGER) {
+      return new IConstantNode(v.i);
+    }
+    if (v.type == ActualValueType::FLOATING) {
+      return new FConstantNode(v.f);
+    }
+    return ret;
+  }
   Value *codegen() {
     Value *lhs = relational_expression->codegen();
     Value *rhs = shift_expression->codegen();
 
     make_lhs_rhs_compatible(lhs, rhs);
 
-    if(lhs->getType()->getTypeID() == llvm::Type::DoubleTyID) {
-    codeGenerator.getBuilder().CreateFCmpOLT(lhs, rhs, "lt");
+    if (lhs->getType()->getTypeID() == llvm::Type::DoubleTyID) {
+      codeGenerator.getBuilder().CreateFCmpOLT(lhs, rhs, "lt");
     }
-
 
     return codeGenerator.getBuilder().CreateICmpSLT(lhs, rhs, "lt");
   }
@@ -2687,14 +3376,36 @@ public:
            shift_expression->check_semantics();
   }
 
+  m_Value get_value_if_possible() const {
+    m_Value lhs = relational_expression->get_value_if_possible();
+    m_Value rhs = shift_expression->get_value_if_possible();
+
+    return (lhs > rhs);
+  }
+
+  ASTNode *optimise() const {
+    auto ret = new GreaterThanExpressionNode(*this);
+    ret->relational_expression = relational_expression->optimise();
+    ret->shift_expression = shift_expression->optimise();
+
+    m_Value v = get_value_if_possible();
+    if (v.type == ActualValueType::INTEGER) {
+      return new IConstantNode(v.i);
+    }
+    if (v.type == ActualValueType::FLOATING) {
+      return new FConstantNode(v.f);
+    }
+    return ret;
+  }
+
   Value *codegen() {
     Value *lhs = relational_expression->codegen();
     Value *rhs = shift_expression->codegen();
 
     make_lhs_rhs_compatible(lhs, rhs);
 
-    if(lhs->getType()->getTypeID() == llvm::Type::DoubleTyID) {
-    return codeGenerator.getBuilder().CreateFCmpOGT(lhs, rhs, "gt");
+    if (lhs->getType()->getTypeID() == llvm::Type::DoubleTyID) {
+      return codeGenerator.getBuilder().CreateFCmpOGT(lhs, rhs, "gt");
     }
     return codeGenerator.getBuilder().CreateICmpSGT(lhs, rhs, "gt");
   }
@@ -2722,15 +3433,35 @@ public:
            shift_expression->check_semantics();
   }
 
+  m_Value get_value_if_possible() const {
+    m_Value lhs = relational_expression->get_value_if_possible();
+    m_Value rhs = shift_expression->get_value_if_possible();
+
+    return (lhs <= rhs);
+  }
+
+  ASTNode *optimise() const {
+    auto ret = new LessOrEqualExpressionNode(*this);
+    ret->relational_expression = relational_expression->optimise();
+    ret->shift_expression = shift_expression->optimise();
+
+    m_Value v = get_value_if_possible();
+    if (v.type == ActualValueType::INTEGER) {
+      return new IConstantNode(v.i);
+    }
+    if (v.type == ActualValueType::FLOATING) {
+      return new FConstantNode(v.f);
+    }
+    return ret;
+  }
   Value *codegen() {
     Value *lhs = relational_expression->codegen();
     Value *rhs = shift_expression->codegen();
 
     make_lhs_rhs_compatible(lhs, rhs);
-    
-    if(lhs->getType()->getTypeID() == llvm::Type::DoubleTyID) {
+
+    if (lhs->getType()->getTypeID() == llvm::Type::DoubleTyID) {
       return codeGenerator.getBuilder().CreateFCmpOLE(lhs, rhs, "le");
-          
     }
     return codeGenerator.getBuilder().CreateICmpSLE(lhs, rhs, "le");
   }
@@ -2758,16 +3489,36 @@ public:
            shift_expression->check_semantics();
   }
 
+  m_Value get_value_if_possible() const {
+    m_Value lhs = relational_expression->get_value_if_possible();
+    m_Value rhs = shift_expression->get_value_if_possible();
+
+    return (lhs >= rhs);
+  }
+
+  ASTNode *optimise() const {
+    auto ret = new GreaterOrEqualExpressionNode(*this);
+    ret->relational_expression = relational_expression->optimise();
+    ret->shift_expression = shift_expression->optimise();
+
+    m_Value v = get_value_if_possible();
+    if (v.type == ActualValueType::INTEGER) {
+      return new IConstantNode(v.i);
+    }
+    if (v.type == ActualValueType::FLOATING) {
+      return new FConstantNode(v.f);
+    }
+    return ret;
+  }
+
   Value *codegen() {
     Value *lhs = relational_expression->codegen();
     Value *rhs = shift_expression->codegen();
 
     make_lhs_rhs_compatible(lhs, rhs);
-    if(lhs->getType()->getTypeID() == llvm::Type::DoubleTyID) {
-    
-      return codeGenerator.getBuilder().CreateFCmpOGE(lhs, rhs, "ge");
-          
+    if (lhs->getType()->getTypeID() == llvm::Type::DoubleTyID) {
 
+      return codeGenerator.getBuilder().CreateFCmpOGE(lhs, rhs, "ge");
     }
     return codeGenerator.getBuilder().CreateICmpSGE(lhs, rhs, "ge");
   }
@@ -2793,6 +3544,26 @@ public:
   bool check_semantics() {
     return shift_expression->check_semantics() &&
            additive_expression->check_semantics();
+  }
+
+  m_Value get_value_if_possible() const {
+    auto lhs = shift_expression->get_value_if_possible();
+    auto rhs = additive_expression->get_value_if_possible();
+    return (lhs << rhs);
+  }
+
+  ASTNode *optimise() const {
+    auto ret = new LeftShiftExpressionNode(*this);
+    ret->shift_expression = shift_expression->optimise();
+    ret->additive_expression = additive_expression->optimise();
+    m_Value v = get_value_if_possible();
+    if (v.type == ActualValueType::INTEGER) {
+      return new IConstantNode(v.i);
+    }
+    if (v.type == ActualValueType::FLOATING) {
+      return new FConstantNode(v.f);
+    }
+    return ret;
   }
 
   Value *codegen() {
@@ -2826,6 +3597,25 @@ public:
                           false);
   }
 
+  m_Value get_value_if_possible() const {
+    auto lhs = shift_expression->get_value_if_possible();
+    auto rhs = additive_expression->get_value_if_possible();
+    return (lhs >> rhs);
+  }
+
+  ASTNode *optimise() const {
+    auto ret = new RightShiftExpressionNode(*this);
+    ret->shift_expression = shift_expression->optimise();
+    ret->additive_expression = additive_expression->optimise();
+    m_Value v = get_value_if_possible();
+    if (v.type != ActualValueType::NO_VALUE) {
+      return new IConstantNode(v.i);
+    }
+    if (v.type == ActualValueType::FLOATING) {
+      return new FConstantNode(v.f);
+    }
+    return ret;
+  }
   bool check_semantics() {
     return shift_expression->check_semantics() &&
            additive_expression->check_semantics();
@@ -2866,16 +3656,24 @@ public:
            multiplicative_expression->check_semantics();
   }
 
-  m_Value get_value_if_possible() {
-    m_Value lhs = additive_expression->get_value_if_possible();
-    m_Value rhs = multiplicative_expression->get_value_if_possible();
+  m_Value get_value_if_possible() const {
+    auto lhs = additive_expression->get_value_if_possible();
+    auto rhs = multiplicative_expression->get_value_if_possible();
+    return (lhs + rhs);
+  }
 
-    if (lhs.type == ActualValueType::INTEGER &&
-        rhs.type == ActualValueType::INTEGER) {
-      return m_Value(lhs.i + rhs.i);
+  ASTNode *optimise() const {
+    auto ret = new AdditiveExpressionNode(*this);
+    ret->additive_expression = additive_expression->optimise();
+    ret->multiplicative_expression = multiplicative_expression->optimise();
+    m_Value v = get_value_if_possible();
+    if (v.type == ActualValueType::INTEGER) {
+      return new IConstantNode(v.i);
     }
-
-    return m_Value(ActualValueType::NO_VALUE);
+    if (v.type == ActualValueType::FLOATING) {
+      return new FConstantNode(v.f);
+    }
+    return ret;
   }
 
   Value *codegen() {
@@ -2910,6 +3708,26 @@ public:
            multiplicative_expression->check_semantics();
   }
 
+  m_Value get_value_if_possible() const {
+    auto lhs = additive_expression->get_value_if_possible();
+    auto rhs = multiplicative_expression->get_value_if_possible();
+    return (lhs - rhs);
+  }
+
+  ASTNode *optimise() const {
+    auto ret = new SubExpressionNode(*this);
+    ret->additive_expression = additive_expression->optimise();
+    ret->multiplicative_expression = multiplicative_expression->optimise();
+    m_Value v = get_value_if_possible();
+    if (v.type == ActualValueType::INTEGER) {
+      return new IConstantNode(v.i);
+    }
+    if (v.type == ActualValueType::FLOATING) {
+      return new FConstantNode(v.f);
+    }
+    return ret;
+  }
+
   Value *codegen() {
     Value *lhs = additive_expression->codegen();
     Value *rhs = multiplicative_expression->codegen();
@@ -2942,6 +3760,25 @@ public:
            cast_expression->check_semantics();
   }
 
+  m_Value get_value_if_possible() const {
+    auto lhs = multiplicative_expression->get_value_if_possible();
+    auto rhs = cast_expression->get_value_if_possible();
+    return (lhs <= rhs);
+  }
+
+  ASTNode *optimise() const {
+    auto ret = new MultiplicativeExpressionNode(*this);
+    ret->multiplicative_expression = multiplicative_expression->optimise();
+    ret->cast_expression = cast_expression->optimise();
+    m_Value v = get_value_if_possible();
+    if (v.type == ActualValueType::INTEGER) {
+      return new IConstantNode(v.i);
+    }
+    if (v.type == ActualValueType::FLOATING) {
+      return new FConstantNode(v.f);
+    }
+    return ret;
+  }
   Value *codegen() {
     Value *lhs = multiplicative_expression->codegen();
     Value *rhs = cast_expression->codegen();
@@ -2971,6 +3808,26 @@ public:
   bool check_semantics() {
     return multiplicative_expression->check_semantics() &&
            cast_expression->check_semantics();
+  }
+
+  m_Value get_value_if_possible() const {
+    auto lhs = multiplicative_expression->get_value_if_possible();
+    auto rhs = cast_expression->get_value_if_possible();
+    return (lhs / rhs);
+  }
+
+  ASTNode *optimise() const {
+    auto ret = new DivExpressionNode(*this);
+    ret->multiplicative_expression = multiplicative_expression->optimise();
+    ret->cast_expression = cast_expression->optimise();
+    m_Value v = get_value_if_possible();
+    if (v.type == ActualValueType::INTEGER) {
+      return new IConstantNode(v.i);
+    }
+    if (v.type == ActualValueType::FLOATING) {
+      return new FConstantNode(v.f);
+    }
+    return ret;
   }
 
   Value *codegen() {
@@ -3003,6 +3860,26 @@ public:
     return multiplicative_expression->check_semantics() &&
            cast_expression->check_semantics();
   }
+  m_Value get_value_if_possible() const {
+    auto lhs = multiplicative_expression->get_value_if_possible();
+    auto rhs = cast_expression->get_value_if_possible();
+    return (lhs % rhs);
+  }
+
+  ASTNode *optimise() const {
+    auto ret = new ModExpressionNode(*this);
+    ret->multiplicative_expression = multiplicative_expression->optimise();
+    ret->cast_expression = cast_expression->optimise();
+
+    m_Value v = get_value_if_possible();
+    if (v.type == ActualValueType::INTEGER) {
+      return new IConstantNode(v.i);
+    }
+    if (v.type == ActualValueType::FLOATING) {
+      return new FConstantNode(v.f);
+    }
+    return ret;
+  }
 
   Value *codegen() {
     Value *lhs = multiplicative_expression->codegen();
@@ -3022,87 +3899,4 @@ private:
   ASTNode *cast_expression;
 };
 
-class IConstantNode : public ASTNode {
-public:
-  IConstantNode(int value) : ASTNode(NodeType::IConstant), value(value) {}
-
-  string dump_ast(int depth = 0) const {
-    string result = formatSpacing(depth);
-    result += "Integer:" + to_string(value) + "\n";
-    return result;
-  }
-
-  Value *codegen() {
-    return llvm::ConstantInt::get(codeGenerator.getContext(),
-                                  llvm::APInt(32, value));
-  }
-
-private:
-  int value;
-};
-
-class FConstantNode : public ASTNode {
-public:
-  FConstantNode(float value) : ASTNode(NodeType::FConstant), value(value) {}
-
-  string dump_ast(int depth = 0) const {
-    string result = formatSpacing(depth);
-    result += "Float:" + to_string(value) + "\n";
-    return result;
-  }
-
-  Value *codegen() {
-
-    return llvm::ConstantFP::get(codeGenerator.getContext(),
-                                 llvm::APFloat(value));
-  }
-
-private:
-  float value;
-};
-
-class StringNode : public ASTNode {
-public:
-  StringNode(string value) : ASTNode(NodeType::String), value(value) {}
-
-  string dump_ast(int depth = 0) const {
-    string result = formatSpacing(depth);
-    result += "String Literal : " + value + " \n";
-    return result;
-  }
-
-  Value *codegen() {
-
-    if (value[0] == '\'') {
-      char charValue = value[1]; // Assuming the character is the second
-                                 // character after the single quote
-                                 //
-      cout << "Hi, here to print " << charValue << endl;
-
-      return llvm::ConstantInt::get(codeGenerator.getContext(),
-                                    llvm::APInt(8, charValue));
-    }
-
-    value = convertRawString(value);
-
-    cout << "Hi, here to print " << value << endl;
-
-    llvm::LLVMContext &context = codeGenerator.global_module->getContext();
-
-    llvm::Constant *strConstant =
-        llvm::ConstantDataArray::getString(context, value);
-    llvm::GlobalVariable *strVar = new llvm::GlobalVariable(
-        *codeGenerator.global_module, strConstant->getType(), true,
-        llvm::GlobalValue::ExternalLinkage, strConstant, "str");
-
-    strVar->setConstant(false);
-
-    return codeGenerator.getBuilder().CreatePointerCast(
-        strVar, codeGenerator.getBuilder().getInt8PtrTy());
-  }
-
-private:
-  string value;
-};
-
-#endif // AST
+#endif // AS
