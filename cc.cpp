@@ -109,6 +109,11 @@ int main(int argc, char **argv) {
     }
   }
 
+  if (dump_ast) {
+    printf("AST->After optimise:\n\n");
+    std::cout << root->dump_ast() << std::endl;
+  }
+
   root->codegen();
   root->dump_llvm(out_filename);
   exit(0);

@@ -212,6 +212,12 @@ public:
          << nodeTypeToString(type) << endl;
   }
 
+  virtual vector<string> getPlainSymbol() const {
+    throw std::runtime_error("getPlainSymbol called on base class | " +
+                             nodeTypeToString(type));
+    return {""};
+  }
+
   virtual void dump_llvm(string out_filename) final {
 
     std::error_code EC;
@@ -308,6 +314,8 @@ public:
     return result;
   }
 
+  vector<string> getPlainSymbol() const { return {}; }
+
   m_Value get_value_if_possible() const { return m_Value(value); }
 
   ASTNode *optimise() const {
@@ -343,6 +351,8 @@ public:
     return ret;
   }
 
+  vector<string> getPlainSymbol() const { return {}; }
+
   Value *codegen() {
 
     return llvm::ConstantFP::get(codeGenerator.getContext(),
@@ -362,6 +372,10 @@ public:
     result += "String Literal : " + value + " \n";
     return result;
   }
+
+  m_Value get_value_if_possible() const { return m_Value(); }
+
+  vector<string> getPlainSymbol() const { return {}; }
 
   ASTNode *optimise() const {
     auto ret = new StringNode(*this);
@@ -1440,14 +1454,6 @@ public:
     ret->expression = expression->optimise();
 
     m_Value v = expression->get_value_if_possible();
-
-    if (v.type == ActualValueType::INTEGER) {
-      return new IConstantNode(v.i);
-    }
-    if (v.type == ActualValueType::FLOATING) {
-      return new FConstantNode(v.f);
-    }
-
     return ret;
   }
 
@@ -1733,7 +1739,11 @@ public:
       : ASTNode(NodeType::Pointer), pointer(pointer) {}
 
   m_Value get() const {
-    m_Value val = pointer->get();
+    m_Value val = m_Value("");
+    if (pointer->getNodeType() != NodeType::Unimplemented) {
+      val = pointer->get();
+    }
+
     val.s += "*";
     return val;
   }
@@ -2022,6 +2032,8 @@ public:
     return result;
   }
 
+  vector<string> getPlainSymbol() const { return {name}; }
+
   m_Value get() const { return m_Value(name); }
 
   bool check_semantics() { return scoperStack.exists(name); }
@@ -2130,8 +2142,24 @@ public:
 
     auto ret = new AssignmentExpressionNode(*this);
 
-    m_Value lhs_name = unary_expression->get();
+    vector<string> lhs_names = unary_expression->getPlainSymbol();
+    vector<string> rhs_names = assignment_expression->getPlainSymbol();
 
+    for (auto &name : rhs_names) {
+      if (name == "*") {
+        return ret;
+      }
+    }
+
+    for (auto &name : lhs_names) {
+      for (auto &name2 : rhs_names) {
+        if (name == name2) {
+          return ret;
+        }
+      }
+    }
+
+    m_Value lhs_name = unary_expression->get();
     ret->assignment_expression = assignment_expression->optimise();
 
     m_Value rhs = ret->assignment_expression->get_value_if_possible();
@@ -2380,6 +2408,14 @@ public:
     return dumpParameters(this, {postfix_expression, expression}, depth, false);
   }
 
+  vector<string> getPlainSymbol() const {
+
+    auto ret = postfix_expression->getPlainSymbol();
+    auto b = expression->getPlainSymbol();
+    ret.insert(ret.end(), b.begin(), b.end());
+    return ret;
+  }
+
   bool check_semantics() {
     return postfix_expression->check_semantics() &&
            expression->check_semantics();
@@ -2485,6 +2521,8 @@ public:
                           depth, false);
   }
 
+  vector<string> getPlainSymbol() const { return {"*"}; }
+
   bool check_semantics() {
     return postfix_expression->check_semantics() &&
            argument_expression_list->check_semantics();
@@ -2558,7 +2596,10 @@ public:
     return result;
   }
 
-  m_Value get() {
+  vector<string> getPlainSymbol() const {
+    return unary_expression->getPlainSymbol();
+  }
+  m_Value get() const {
     string pref = un_op == UnaryOperator::MUL_OP ? "*" : "";
     m_Value val = unary_expression->get();
     return m_Value(pref + val.s);
@@ -2708,6 +2749,10 @@ public:
     return result;
   }
 
+  vector<string> getPlainSymbol() const {
+    return primary_expression->getPlainSymbol();
+  }
+
   ASTNode *optimise() const {
     auto ret = new PostfixExpressionNode(*this);
     ret->primary_expression = primary_expression->optimise();
@@ -2808,6 +2853,15 @@ public:
     return logical_or_expression->check_semantics() &&
            expression->check_semantics() &&
            conditional_expression->check_semantics();
+  }
+
+  vector<string> getPlainSymbol() const {
+    vector<string> ret = logical_or_expression->getPlainSymbol();
+    vector<string> b = expression->getPlainSymbol();
+    ret.insert(ret.end(), b.begin(), b.end());
+    b = conditional_expression->getPlainSymbol();
+    ret.insert(ret.end(), b.begin(), b.end());
+    return ret;
   }
 
   m_Value get_value_if_possible() const {
@@ -2997,6 +3051,13 @@ public:
         this, {inclusive_or_expression, exclusive_or_expression}, depth, false);
   }
 
+  vector<string> getPlainSymbol() const {
+    vector<string> ret = inclusive_or_expression->getPlainSymbol();
+    vector<string> b = exclusive_or_expression->getPlainSymbol();
+    ret.insert(ret.end(), b.begin(), b.end());
+    return ret;
+  }
+
   bool check_semantics() {
     return inclusive_or_expression->check_semantics() &&
            exclusive_or_expression->check_semantics();
@@ -3073,6 +3134,13 @@ public:
            and_expression->check_semantics();
   }
 
+  vector<string> getPlainSymbol() const {
+    vector<string> ret = exclusive_or_expression->getPlainSymbol();
+    vector<string> b = and_expression->getPlainSymbol();
+    ret.insert(ret.end(), b.begin(), b.end());
+    return ret;
+  }
+
   m_Value get_value_if_possible() const {
     m_Value lhs = exclusive_or_expression->get_value_if_possible();
     m_Value rhs = and_expression->get_value_if_possible();
@@ -3140,6 +3208,13 @@ public:
            equality_expression->check_semantics();
   }
 
+  vector<string> getPlainSymbol() const {
+    vector<string> ret = and_expression->getPlainSymbol();
+    vector<string> b = equality_expression->getPlainSymbol();
+    ret.insert(ret.end(), b.begin(), b.end());
+    return ret;
+  }
+
   m_Value get_value_if_possible() const {
     m_Value lhs = and_expression->get_value_if_possible();
     m_Value rhs = equality_expression->get_value_if_possible();
@@ -3201,6 +3276,13 @@ public:
                           depth, false);
   }
 
+  vector<string> getPlainSymbol() const {
+    vector<string> ret = equality_expression->getPlainSymbol();
+    vector<string> b = relational_expression->getPlainSymbol();
+    ret.insert(ret.end(), b.begin(), b.end());
+    return ret;
+  }
+
   bool check_semantics() {
     return equality_expression->check_semantics() &&
            relational_expression->check_semantics();
@@ -3255,6 +3337,13 @@ public:
   string dump_ast(int depth = 0) const {
     return dumpParameters(this, {equality_expression, relational_expression},
                           depth, false);
+  }
+
+  vector<string> getPlainSymbol() const {
+    vector<string> ret = equality_expression->getPlainSymbol();
+    vector<string> b = relational_expression->getPlainSymbol();
+    ret.insert(ret.end(), b.begin(), b.end());
+    return ret;
   }
 
   bool check_semantics() {
@@ -3314,6 +3403,13 @@ public:
                           depth, false);
   }
 
+  vector<string> getPlainSymbol() const {
+    vector<string> ret = relational_expression->getPlainSymbol();
+    vector<string> b = shift_expression->getPlainSymbol();
+    ret.insert(ret.end(), b.begin(), b.end());
+    return ret;
+  }
+
   bool check_semantics() {
     return relational_expression->check_semantics() &&
            shift_expression->check_semantics();
@@ -3371,6 +3467,12 @@ public:
                           depth, false);
   }
 
+  vector<string> getPlainSymbol() const {
+    vector<string> ret = relational_expression->getPlainSymbol();
+    vector<string> b = shift_expression->getPlainSymbol();
+    ret.insert(ret.end(), b.begin(), b.end());
+    return ret;
+  }
   bool check_semantics() {
     return relational_expression->check_semantics() &&
            shift_expression->check_semantics();
@@ -3428,6 +3530,12 @@ public:
                           depth, false);
   }
 
+  vector<string> getPlainSymbol() const {
+    vector<string> ret = relational_expression->getPlainSymbol();
+    vector<string> b = shift_expression->getPlainSymbol();
+    ret.insert(ret.end(), b.begin(), b.end());
+    return ret;
+  }
   bool check_semantics() {
     return relational_expression->check_semantics() &&
            shift_expression->check_semantics();
@@ -3484,6 +3592,12 @@ public:
                           depth, false);
   }
 
+  vector<string> getPlainSymbol() const {
+    vector<string> ret = relational_expression->getPlainSymbol();
+    vector<string> b = shift_expression->getPlainSymbol();
+    ret.insert(ret.end(), b.begin(), b.end());
+    return ret;
+  }
   bool check_semantics() {
     return relational_expression->check_semantics() &&
            shift_expression->check_semantics();
@@ -3539,6 +3653,13 @@ public:
   string dump_ast(int depth = 0) const {
     return dumpParameters(this, {shift_expression, additive_expression}, depth,
                           false);
+  }
+
+  vector<string> getPlainSymbol() const {
+    vector<string> ret = shift_expression->getPlainSymbol();
+    vector<string> b = additive_expression->getPlainSymbol();
+    ret.insert(ret.end(), b.begin(), b.end());
+    return ret;
   }
 
   bool check_semantics() {
@@ -3597,6 +3718,13 @@ public:
                           false);
   }
 
+  vector<string> getPlainSymbol() const {
+    vector<string> ret = shift_expression->getPlainSymbol();
+    vector<string> b = additive_expression->getPlainSymbol();
+    ret.insert(ret.end(), b.begin(), b.end());
+    return ret;
+  }
+
   m_Value get_value_if_possible() const {
     auto lhs = shift_expression->get_value_if_possible();
     auto rhs = additive_expression->get_value_if_possible();
@@ -3651,6 +3779,13 @@ public:
         this, {additive_expression, multiplicative_expression}, depth, false);
   }
 
+  vector<string> getPlainSymbol() const {
+    vector<string> ret = additive_expression->getPlainSymbol();
+    vector<string> b = multiplicative_expression->getPlainSymbol();
+    ret.insert(ret.end(), b.begin(), b.end());
+    return ret;
+  }
+
   bool check_semantics() {
     return additive_expression->check_semantics() &&
            multiplicative_expression->check_semantics();
@@ -3701,6 +3836,13 @@ public:
   string dump_ast(int depth = 0) const {
     return dumpParameters(
         this, {additive_expression, multiplicative_expression}, depth, false);
+  }
+
+  vector<string> getPlainSymbol() const {
+    vector<string> ret = additive_expression->getPlainSymbol();
+    vector<string> b = multiplicative_expression->getPlainSymbol();
+    ret.insert(ret.end(), b.begin(), b.end());
+    return ret;
   }
 
   bool check_semantics() {
@@ -3755,6 +3897,13 @@ public:
                           depth, false);
   }
 
+  vector<string> getPlainSymbol() const {
+    vector<string> ret = multiplicative_expression->getPlainSymbol();
+    vector<string> b = cast_expression->getPlainSymbol();
+    ret.insert(ret.end(), b.begin(), b.end());
+    return ret;
+  }
+
   bool check_semantics() {
     return multiplicative_expression->check_semantics() &&
            cast_expression->check_semantics();
@@ -3805,6 +3954,12 @@ public:
                           depth, false);
   }
 
+  vector<string> getPlainSymbol() const {
+    vector<string> ret = multiplicative_expression->getPlainSymbol();
+    vector<string> b = cast_expression->getPlainSymbol();
+    ret.insert(ret.end(), b.begin(), b.end());
+    return ret;
+  }
   bool check_semantics() {
     return multiplicative_expression->check_semantics() &&
            cast_expression->check_semantics();
@@ -3856,6 +4011,12 @@ public:
                           depth, false);
   }
 
+  vector<string> getPlainSymbol() const {
+    vector<string> ret = multiplicative_expression->getPlainSymbol();
+    vector<string> b = cast_expression->getPlainSymbol();
+    ret.insert(ret.end(), b.begin(), b.end());
+    return ret;
+  }
   bool check_semantics() {
     return multiplicative_expression->check_semantics() &&
            cast_expression->check_semantics();
@@ -3899,4 +4060,4 @@ private:
   ASTNode *cast_expression;
 };
 
-#endif // AS
+#endif
