@@ -41,7 +41,7 @@ run_extra: clean cc
 unittest:
 	python3 stress_test.py
 
-run_stress: clean cc 
+run_stress:clean cc 
 	$(eval stress_number := $(word 2,$(MAKECMDGOALS)))
 	$(eval padded_number := $(shell printf "%05d" $(stress_number)))
 	$(eval c_file := ./stress/$(padded_number).c)

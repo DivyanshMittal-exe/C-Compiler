@@ -49,6 +49,8 @@ static bool is_declaration_global = false;
 
 static SpecifierEnum dec_type_for_optimisation;
 
+static bool constant_prop = false;
+
 static void make_bool(llvm::Value *&conditionValue) {
 
   if (conditionValue->getType()->getTypeID() == llvm::Type::IntegerTyID) {
@@ -181,6 +183,19 @@ public:
 
   vector<ASTNode *> getChildren() { return children; }
 
+  ASTNode *disable_constant_prop() {
+
+    constant_prop = false;
+    codeGenerator.constant_prop = false;
+    return optimise();
+  }
+
+  ASTNode *enable_constant_prop() {
+    constant_prop = true;
+    codeGenerator.constant_prop = true;
+    return optimise();
+  }
+
   virtual bool check_semantics() {
 
     std::cerr << "Checking Semantics for " << nodeTypeToString(type)
@@ -194,8 +209,11 @@ public:
   }
 
   virtual m_Value get() const {
-    throw std::runtime_error("Unimplemented get() function.");
+    cerr << "get() called on " << nodeTypeToString(type) << endl;
+    throw std::runtime_error("Unimplemented get() function on ");
   }
+
+  virtual m_Value get_for_optim() const { return get(); }
 
   virtual llvm::Value *codegen() {
     cerr << "Codegen called for " << nodeTypeToString(type) << endl;
@@ -956,7 +974,7 @@ public:
         codeGenerator.getContext(), "switch", function);
     llvm::BasicBlock *defaultBlock =
         llvm::BasicBlock::Create(codeGenerator.getContext(), "default");
-    llvm::BasicBlock *mergeBlock =
+    llvm::BasicBlock *loopmergeBlock =
         llvm::BasicBlock::Create(codeGenerator.getContext(), "switchcont");
 
     codeGenerator.getBuilder().CreateBr(switchBlock);
@@ -965,14 +983,20 @@ public:
     codeGenerator.pushContext();
     auto statements = statement->getChildren();
 
-    int numCases = statements.size();
+    /* int numCases = statements.size(); */
+  int numCases = 0;
     ASTNode *defaultCase = nullptr;
-    for (auto statement : statements) {
-      if (statement->getNodeType() == NodeType::DefaultLabelStatement) {
+    for(auto statement: statements){
+      if(statement->getNodeType() == NodeType::CaseLabelStatement){
+        numCases++;
+      }else if(statement->getNodeType() == NodeType::DefaultLabelStatement){
         defaultCase = statement;
-        numCases--;
       }
     }
+  
+      llvm::BasicBlock *oldMergeBlock = merge_block;
+      merge_block = loopmergeBlock;
+
 
     llvm::SwitchInst *switchInst = codeGenerator.getBuilder().CreateSwitch(
         conditionValue, defaultBlock, numCases);
@@ -980,6 +1004,10 @@ public:
     for (int i = 0; i < statements.size(); i++) {
       if (statements[i]->getNodeType() == NodeType::DefaultLabelStatement) {
         continue;
+      }else if (statements[i]->getNodeType() == NodeType::BreakStatement) {
+    codeGenerator.getBuilder().SetInsertPoint(loopmergeBlock);
+    codeGenerator.getBuilder().CreateBr(loopmergeBlock);
+    continue;
       }
       llvm::BasicBlock *caseBlock = llvm::BasicBlock::Create(
           codeGenerator.getContext(), "case" + std::to_string(i), function);
@@ -993,7 +1021,7 @@ public:
       }
 
       caseNode->statement->codegen();
-      codeGenerator.getBuilder().CreateBr(mergeBlock);
+      codeGenerator.getBuilder().CreateBr(loopmergeBlock);
 
       llvm::ConstantInt *caseValue = llvm::dyn_cast<llvm::ConstantInt>(
           caseNode->constant_expression->codegen());
@@ -1010,14 +1038,14 @@ public:
           dynamic_cast<DefaultLabelStatementNode *>(defaultCase);
 
       defaultNode->statement->codegen();
-      codeGenerator.getBuilder().CreateBr(mergeBlock);
+      codeGenerator.getBuilder().CreateBr(loopmergeBlock);
     }
 
     codeGenerator.popContext();
 
     // Add the merge block to the function
-    function->getBasicBlockList().push_back(mergeBlock);
-    codeGenerator.getBuilder().SetInsertPoint(mergeBlock);
+    function->getBasicBlockList().push_back(loopmergeBlock);
+    codeGenerator.getBuilder().SetInsertPoint(loopmergeBlock);
 
     return nullptr;
   }
@@ -1554,6 +1582,12 @@ public:
   ASTNode *optimise() const {
     auto ret = new InitDeclartorNode(*this);
     ret->initializer = initializer->optimise();
+
+    m_Value v = initializer->get_value_if_possible();
+    m_Value name = declarator->get_for_optim();
+
+    codeGenerator.put_mval(name.s, v);
+
     return ret;
   }
 
@@ -1699,10 +1733,12 @@ public:
 
   ASTNode *optimise() const { return new DeclaratorNode(*this); }
 
-  m_Value get() const {
-    m_Value val = direct_declarator->get();
-    val.s = pointer->get().s + val.s;
-    return direct_declarator->get();
+  m_Value get() const { return direct_declarator->get(); }
+
+  m_Value get_for_optim() const {
+    m_Value val = direct_declarator->get_for_optim();
+    val.s = pointer->get_for_optim().s + val.s;
+    return val;
   }
 
   void fixFunctionParams() {
@@ -1748,6 +1784,15 @@ public:
     return val;
   }
 
+  m_Value get_for_optim() const {
+    m_Value val = m_Value("");
+    if (pointer->getNodeType() != NodeType::Unimplemented) {
+      val = pointer->get_for_optim();
+    }
+    val.s += "*";
+    return val;
+  }
+
   m_Value get_value_if_possible() const { return m_Value(); }
 
   ASTNode *optimise() const {
@@ -1757,7 +1802,7 @@ public:
   }
 
   string dump_ast(int depth = 0) const {
-    string result = formatSpacing(depth) + "*\n";
+    string result = formatSpacing(depth) + "Pointer*\n";
     if (pointer->getNodeType() != NodeType::Unimplemented) {
       result += pointer->dump_ast(depth);
     }
@@ -1793,8 +1838,18 @@ public:
   void modifyDeclarationType() { direct_declarator->modifyDeclarationType(); }
 
   m_Value get_value_if_possible() const {
-    m_Value val = get();
+
+    if (!constant_prop)
+      return m_Value();
+    m_Value val = get_for_optim();
+
     return codeGenerator.get_mval(val.s);
+  }
+
+  m_Value get_for_optim() const {
+    m_Value val = direct_declarator->get_for_optim();
+    val.s += "[" + assignment_expression->dump_ast() + "]";
+    return val;
   }
 
   ASTNode *optimise() const {
@@ -1804,11 +1859,7 @@ public:
     return ret;
   }
 
-  m_Value get() const {
-    m_Value val = direct_declarator->get();
-    val.s += "[" + assignment_expression->dump_ast() + "]";
-    return val;
-  }
+  m_Value get() const { return direct_declarator->get(); }
 
   Value *codegen() {
 
@@ -2040,7 +2091,12 @@ public:
 
   void modifyDeclarationType() {}
 
-  m_Value get_value_if_possible() const { return codeGenerator.get_mval(name); }
+  m_Value get_value_if_possible() const {
+
+    if (!constant_prop)
+      return m_Value();
+    return codeGenerator.get_mval(name);
+  }
 
   ASTNode *optimise() const {
     auto ret = new IdentifierNode(*this);
@@ -2094,6 +2150,15 @@ public:
     return ret;
   }
 
+  vector<string> getPlainSymbol() const {
+    vector<string> to_ret = {};
+    for (auto &child : children) {
+      auto got = child->getPlainSymbol();
+      to_ret.insert(to_ret.end(), got.begin(), got.end());
+    }
+    return to_ret;
+  }
+
   bool check_semantics() {
     for (auto child : children) {
       if (!child->check_semantics()) {
@@ -2134,6 +2199,10 @@ public:
            assignment_expression->check_semantics();
   }
 
+  vector<string> getPlainSymbol() const {
+    return assignment_expression->getPlainSymbol();
+  }
+
   m_Value get_value_if_possible() const {
     return unary_expression->get_value_if_possible();
   }
@@ -2159,7 +2228,7 @@ public:
       }
     }
 
-    m_Value lhs_name = unary_expression->get();
+    m_Value lhs_name = unary_expression->get_for_optim();
     ret->assignment_expression = assignment_expression->optimise();
 
     m_Value rhs = ret->assignment_expression->get_value_if_possible();
@@ -2421,14 +2490,21 @@ public:
            expression->check_semantics();
   }
 
-  m_Value get() const {
-    m_Value name = postfix_expression->get();
-    string exp = expression->dump_ast();
-    return m_Value(name.s + "[" + exp + "]");
+  m_Value get() const { return postfix_expression->get(); }
+
+  m_Value get_for_optim() const {
+    m_Value val = postfix_expression->get_for_optim();
+    val.s += "[" + expression->dump_ast() + "]";
+    return val;
   }
 
   m_Value get_value_if_possible() const {
-    return codeGenerator.get_mval(get().s);
+
+    if (!constant_prop)
+      return m_Value();
+    m_Value v = get();
+    v.s += "[" + expression->dump_ast() + "]";
+    return codeGenerator.get_mval(v.s);
   }
 
   ASTNode *optimise() const {
@@ -2590,7 +2666,7 @@ public:
 
   string dump_ast(int depth = 0) const {
     string result = formatSpacing(depth);
-    result += "Prefix: " + unaryOperatorToString(un_op) + "{ \n";
+    result += "Prefix: UnOp" + unaryOperatorToString(un_op) + "{ \n";
     result += unary_expression->dump_ast(depth + 1);
     result += formatSpacing(depth) + "} \n";
     return result;
@@ -2599,18 +2675,28 @@ public:
   vector<string> getPlainSymbol() const {
     return unary_expression->getPlainSymbol();
   }
-  m_Value get() const {
+  m_Value get() const { return unary_expression->get(); }
+
+  m_Value get_for_optim() const {
+
     string pref = un_op == UnaryOperator::MUL_OP ? "*" : "";
-    m_Value val = unary_expression->get();
-    return m_Value(pref + val.s);
+    m_Value name = unary_expression->get_for_optim();
+    name.s = pref + name.s;
+    return name;
   }
 
   m_Value get_value_if_possible() {
     m_Value val = unary_expression->get_value_if_possible();
-    m_Value name = get();
+    m_Value name = get_for_optim();
+
     switch (un_op) {
-    case UnaryOperator::MUL_OP:
+    case UnaryOperator::MUL_OP: {
+
+      if (!constant_prop)
+        return m_Value();
+
       return codeGenerator.get_mval(name.s);
+    }
     case UnaryOperator::PLUS:
       return val;
     case UnaryOperator::MINUS:
@@ -2625,6 +2711,11 @@ public:
   }
 
   ASTNode *optimise() const {
+
+    if (un_op == UnaryOperator::ADDRESS_OF) {
+      constant_prop = false;
+    }
+
     auto ret = new UnaryExpressionNode(*this);
     ret->unary_expression = unary_expression->optimise();
     return ret;
@@ -2748,6 +2839,8 @@ public:
     result += formatSpacing(depth) + "} \n";
     return result;
   }
+
+  m_Value get() const { return primary_expression->get(); }
 
   vector<string> getPlainSymbol() const {
     return primary_expression->getPlainSymbol();
@@ -3912,7 +4005,7 @@ public:
   m_Value get_value_if_possible() const {
     auto lhs = multiplicative_expression->get_value_if_possible();
     auto rhs = cast_expression->get_value_if_possible();
-    return (lhs <= rhs);
+    return (lhs * rhs);
   }
 
   ASTNode *optimise() const {

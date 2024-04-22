@@ -78,9 +78,10 @@ int main(int argc, char **argv) {
 
   printf("Parsing successful\n");
 
+  string ast_dump = root->dump_ast();
   if (dump_ast) {
     printf("AST:\n\n");
-    std::cout << root->dump_ast() << std::endl;
+    std::cout << ast_dump << std::endl;
   }
 
   if (skipSemantics) {
@@ -95,13 +96,26 @@ int main(int argc, char **argv) {
     }
   }
 
+  string disable_if_ptr = "UnOp&{";
+  string disable_if_ptr2 = "UnOp*{";
+
+  bool const_prop = false;
+  if (ast_dump.find(disable_if_ptr) != string::npos ||
+      ast_dump.find(disable_if_ptr2) != string::npos) {
+    const_prop = true;
+  }
+
   if (optimise) {
     ASTNode *old = new NullPtrNode();
     string old_dump = old->dump_ast();
     int i = 0;
     while (old_dump != root->dump_ast()) {
       old_dump = root->dump_ast();
-      root = root->optimise();
+      if (const_prop) {
+        root = root->enable_constant_prop();
+      } else {
+        root = root->disable_constant_prop();
+      }
       if (i > 100) {
         break;
       }

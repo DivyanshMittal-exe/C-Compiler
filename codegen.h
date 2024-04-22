@@ -71,6 +71,8 @@ public:
   map<string, llvm::Function *> declared_functions;
 
   CodeGenerator() {
+    constant_prop = true;
+
     unique_ptr<llvm::LLVMContext> global_context =
         make_unique<llvm::LLVMContext>();
     builder = make_unique<llvm::IRBuilder<>>(*global_context);
@@ -127,7 +129,14 @@ public:
     throw std::runtime_error("Variable " + name + " not found");
   }
 
+  bool constant_prop;
+
   m_Value get_mval(string key) {
+
+    if (!constant_prop) {
+      return m_Value();
+    }
+
     for (auto it = symbol_tables.rbegin(); it != symbol_tables.rend(); ++it) {
       auto &x = *it; // Dereference the reverse iterator to get the element
       // Check if the variable exists in the current symbol_table

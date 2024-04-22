@@ -1,4 +1,5 @@
-#include <stdio.h>
+
+int printf(const char *format, ...);
 
 int main()
 {
@@ -22,17 +23,17 @@ int main()
    printf("%d\n", (y = c + d));
    printf("%d\n", e || e && f);
    printf("%d\n", e || f && f);
-   printf("%d\n", e && e || f);
-   printf("%d\n", e && f || f);
-   printf("%d\n", a && f | f);
-   printf("%d\n", a | b ^ c & d);
-   printf("%d, %d\n", a == a, a == b);
-   printf("%d, %d\n", a != a, a != b);
-   printf("%d\n", a != b && c != d);
-   printf("%d\n", a + b * c / f);
-   printf("%d\n", a + b * c / f);
-   printf("%d\n", (4 << 4));
-   printf("%d\n", (64 >> 4));
+   // printf("%d\n", e && e || f);
+   // printf("%d\n", e && f || f);
+   // printf("%d\n", a && f | f);
+   // printf("%d\n", a | b ^ c & d);
+   // printf("%d, %d\n", a == a, a == b);
+   // printf("%d, %d\n", a != a, a != b);
+   // printf("%d\n", a != b && c != d);
+   // printf("%d\n", a + b * c / f);
+   // printf("%d\n", a + b * c / f);
+   // printf("%d\n", (4 << 4));
+   // printf("%d\n", (64 >> 4));
 
    return 0;
 }

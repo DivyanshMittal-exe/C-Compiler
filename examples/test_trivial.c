@@ -33,9 +33,14 @@ int main() {
 
   // float a = 1.0;
   // float b = 2.0;
-  int a = 3;
-  int b = 2;
-  printf("a = %d\n", a);
+  int a;
+  a = 3;
+  int b;
+  b = a;
+  if (a) {
+
+    printf("a = %d\n", a);
+  }
   // int j = 0;
   // s[j] = 'a';
   // char t = s[1];
@@ -55,5 +60,5 @@ int main() {
   //   x = x + 1;
   // }
 
-  return 1;
+  return 0;
 }
