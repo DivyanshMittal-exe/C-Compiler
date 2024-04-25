@@ -1,4 +1,4 @@
-#include <stdio.h>
+int printf(const char *format, ...);
 
 #define FRED 12
 #define BLOGGS(x) (12*(x))

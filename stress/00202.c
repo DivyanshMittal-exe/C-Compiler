@@ -1,4 +1,4 @@
-#include <stdio.h>
+int printf(const char *format, ...);
 
 #define P(A,B) A ## B ; bob
 #define Q(A,B) A ## B+

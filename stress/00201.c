@@ -1,4 +1,4 @@
-#include <stdio.h>	// printf()
+int printf(const char *format, ...);	// printf()
 
 #define CAT2(a,b) a##b
 #define CAT(a,b) CAT2(a,b)

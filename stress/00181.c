@@ -26,7 +26,7 @@
  *
  */
 
-#include <stdio.h>
+int printf(const char *format, ...);
 #include <stdlib.h>
 
 #define TRUE 1

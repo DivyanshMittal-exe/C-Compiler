@@ -113,6 +113,11 @@ public:
 
   void popContext() { symbol_tables.pop_back(); }
 
+  void resetAllContext() {
+    symbol_tables.clear();
+    symbol_tables.push_back(make_unique<m_Context>(m_Context(true)));
+  }
+
   m_Context &getsymbolTable() { return *symbol_tables.back(); }
 
   llvm::Value *findSymbol(string name) {

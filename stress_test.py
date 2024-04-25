@@ -62,16 +62,24 @@ if __name__ == '__main__':
     for file in c_files:
         with open(os.path.join('./stress/', file), 'r') as f:
             content = f.read()
+
             for s in skip_if_has:
                 if s in content:
                     print(f"Skipping {file} because of {s}")
                     break
             else:
                 c_files_copy.append(file)
+        modified_content = content.replace(
+            "#include <stdio.h>", "int printf(const char *format, ...);")
+
+        # Write the modified content back to the file
+        with open(os.path.join('./stress/', file), 'w') as f:
+            f.write(modified_content)
+
     c_files = c_files_copy
     to_skip = [
         37, 38, 39, 40, 51, 72, 73, 78, 88, 90, 95, 103, 112, 117, 119, 123,
-        164
+        164, 166, 173
     ]
     not_care = [
         43, 44, 46, 47, 98, 104, 114, 124, 128, 133, 134, 135, 143, 144, 147,

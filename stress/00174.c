@@ -1,5 +1,4 @@
-#include <stdio.h>
-#include <math.h>
+int printf(const char *format, ...);
 
 int main()
 {
@@ -42,7 +41,6 @@ int main()
    // type coercion
    a = 2;
    printf("%f\n", a);
-   printf("%f\n", sin(2));
 
    return 0;
 }

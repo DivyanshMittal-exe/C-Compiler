@@ -49,7 +49,7 @@ static bool is_declaration_global = false;
 
 static SpecifierEnum dec_type_for_optimisation;
 
-static bool constant_prop = false;
+static bool constant_prop = true;
 
 static void make_bool(llvm::Value *&conditionValue) {
 
@@ -372,7 +372,11 @@ public:
   vector<string> getPlainSymbol() const { return {}; }
 
   Value *codegen() {
+    llvm::Type *doubleType = llvm::Type::getDoubleTy(codeGenerator.getContext());
 
+
+    // Create a constant double value
+    return llvm::ConstantFP::get(doubleType, value);
     return llvm::ConstantFP::get(codeGenerator.getContext(),
                                  llvm::APFloat(value));
   }
@@ -468,6 +472,8 @@ public:
 
   Value *codegen() {
 
+    codeGenerator.resetAllContext();
+
     for (auto child : children) {
       declaration_type = nullptr;
       function_params.clear();
@@ -505,8 +511,9 @@ public:
 
   ASTNode *optimise() const {
     auto ret = new FunctionDefinitionNode(*this);
-
+    codeGenerator.pushContext();
     ret->compound_statement = compound_statement->optimise();
+    codeGenerator.popContext();
     return ret;
   }
 
@@ -706,9 +713,11 @@ public:
 
   ASTNode *optimise() const {
     auto ret = new CompoundStatementNode(*this);
+    codeGenerator.pushContext();
     for (auto &child : ret->children) {
       child = child->optimise();
     }
+    codeGenerator.popContext();
     return ret;
   }
 
@@ -847,8 +856,12 @@ public:
     auto ret = new IfElseStatementNode(*this);
 
     ret->expression = expression->optimise();
+    codeGenerator.pushContext();
     ret->statement = statement->optimise();
+    codeGenerator.popContext();
+    codeGenerator.pushContext();
     ret->else_statement = else_statement->optimise();
+    codeGenerator.popContext();
     m_Value val = expression->get_value_if_possible();
     if (val.type == ActualValueType::INTEGER) {
       return val.i ? ret->statement : ret->else_statement;
@@ -948,7 +961,9 @@ public:
   ASTNode *optimise() const {
     auto ret = new SwitchStatementNode(*this);
     ret->expression = expression->optimise();
+    codeGenerator.pushContext();
     ret->statement = statement->optimise();
+    codeGenerator.popContext();
     return ret;
   }
 
@@ -984,19 +999,18 @@ public:
     auto statements = statement->getChildren();
 
     /* int numCases = statements.size(); */
-  int numCases = 0;
+    int numCases = 0;
     ASTNode *defaultCase = nullptr;
-    for(auto statement: statements){
-      if(statement->getNodeType() == NodeType::CaseLabelStatement){
+    for (auto statement : statements) {
+      if (statement->getNodeType() == NodeType::CaseLabelStatement) {
         numCases++;
-      }else if(statement->getNodeType() == NodeType::DefaultLabelStatement){
+      } else if (statement->getNodeType() == NodeType::DefaultLabelStatement) {
         defaultCase = statement;
       }
     }
-  
-      llvm::BasicBlock *oldMergeBlock = merge_block;
-      merge_block = loopmergeBlock;
 
+    llvm::BasicBlock *oldMergeBlock = merge_block;
+    merge_block = loopmergeBlock;
 
     llvm::SwitchInst *switchInst = codeGenerator.getBuilder().CreateSwitch(
         conditionValue, defaultBlock, numCases);
@@ -1004,10 +1018,10 @@ public:
     for (int i = 0; i < statements.size(); i++) {
       if (statements[i]->getNodeType() == NodeType::DefaultLabelStatement) {
         continue;
-      }else if (statements[i]->getNodeType() == NodeType::BreakStatement) {
-    codeGenerator.getBuilder().SetInsertPoint(loopmergeBlock);
-    codeGenerator.getBuilder().CreateBr(loopmergeBlock);
-    continue;
+      } else if (statements[i]->getNodeType() == NodeType::BreakStatement) {
+        /* codeGenerator.getBuilder().SetInsertPoint(loopmergeBlock); */
+        /* codeGenerator.getBuilder().CreateBr(loopmergeBlock); */
+        continue;
       }
       llvm::BasicBlock *caseBlock = llvm::BasicBlock::Create(
           codeGenerator.getContext(), "case" + std::to_string(i), function);
@@ -1069,8 +1083,9 @@ public:
   ASTNode *optimise() const {
     auto ret = new WhileStatementNode(*this);
     auto expression_copy = expression->optimise();
+    codeGenerator.pushContext();
     ret->statement = statement->optimise();
-
+    codeGenerator.popContext();
     m_Value val = expression_copy->get_value_if_possible();
 
     if (val.type == ActualValueType::INTEGER) {
@@ -1158,8 +1173,9 @@ public:
   m_Value get_value_if_possible() const { return m_Value(); }
   ASTNode *optimise() const {
     auto ret = new DoWhileStatementNode(*this);
+    codeGenerator.pushContext();
     ret->statement = statement->optimise();
-
+    codeGenerator.popContext();
     // Can't do the same optimisation as while statement here because of break
     // and continue
 
@@ -1245,8 +1261,9 @@ public:
   ASTNode *optimise() const {
 
     auto ret = new ForStatementNode(*this);
-
+    codeGenerator.pushContext();
     ret->expression1 = expression1->optimise();
+    codeGenerator.pushContext();
     auto expression2_copy = expression2->optimise();
     ret->expression3 = expression3->optimise();
 
@@ -1265,6 +1282,8 @@ public:
     }
 
     ret->statement = statement->optimise();
+    codeGenerator.popContext();
+    codeGenerator.popContext();
     return ret;
   }
 
@@ -2211,23 +2230,23 @@ public:
 
     auto ret = new AssignmentExpressionNode(*this);
 
-    vector<string> lhs_names = unary_expression->getPlainSymbol();
-    vector<string> rhs_names = assignment_expression->getPlainSymbol();
+    /* vector<string> lhs_names = unary_expression->getPlainSymbol(); */
+    /* vector<string> rhs_names = assignment_expression->getPlainSymbol(); */
 
-    for (auto &name : rhs_names) {
-      if (name == "*") {
-        return ret;
-      }
-    }
-
-    for (auto &name : lhs_names) {
-      for (auto &name2 : rhs_names) {
-        if (name == name2) {
-          return ret;
-        }
-      }
-    }
-
+    /* for (auto &name : rhs_names) { */
+    /*   if (name == "*") { */
+    /*     return ret; */
+    /*   } */
+    /* } */
+    /**/
+    /* for (auto &name : lhs_names) { */
+    /*   for (auto &name2 : rhs_names) { */
+    /*     if (name == name2) { */
+    /*       return ret; */
+    /*     } */
+    /*   } */
+    /* } */
+    /**/
     m_Value lhs_name = unary_expression->get_for_optim();
     ret->assignment_expression = assignment_expression->optimise();
 
@@ -2238,6 +2257,7 @@ public:
 
     switch (assOp) {
     case AssignmentOperator::ASSIGN: {
+      v = rhs;
       break;
     }
     case AssignmentOperator::ADD_ASSIGN: {
@@ -2283,21 +2303,14 @@ public:
     }
     }
     if (v.type == ActualValueType::INTEGER) {
+      ret->assOp = AssignmentOperator::ASSIGN;
       ret->assignment_expression = new IConstantNode(v.i);
     } else if (v.type == ActualValueType::FLOATING) {
+      ret->assOp = AssignmentOperator::ASSIGN;
       ret->assignment_expression = new FConstantNode(v.f);
     }
 
-    if (v.type != NO_VALUE) {
-      ret->assOp = AssignmentOperator::ASSIGN;
-    }
-
-    v = ret->assignment_expression->get_value_if_possible();
-    if (ret->assOp == AssignmentOperator::ASSIGN) {
-      if (v.type != NO_VALUE) {
-        codeGenerator.put_mval(lhs_name.s, v);
-      }
-    }
+    codeGenerator.put_mval(lhs_name.s, v);
 
     return ret;
   }
@@ -2605,7 +2618,11 @@ public:
   }
 
   m_Value get_value_if_possible() const { return m_Value(); }
-  ASTNode *optimise() const { return new FunctionCallNode(*this); }
+  ASTNode *optimise() const { 
+    auto ret = new FunctionCallNode(*this); 
+    ret->argument_expression_list = argument_expression_list->optimise();
+    return ret;
+  }
 
   Value *codegen() {
 
@@ -2648,6 +2665,15 @@ public:
 
   ASTNode *optimise() const {
     auto ret = new ArgumentExpressionListNode(*this);
+    for (auto &child : ret->children) {
+      child = child->optimise();
+      auto val = child->get_value_if_possible();
+      if(val.type == ActualValueType::INTEGER){
+        child = new IConstantNode(val.i);
+      }else if(val.type == ActualValueType::FLOATING){
+        child = new FConstantNode(val.f);
+      }
+    }
     return ret;
   }
 
@@ -2685,16 +2711,17 @@ public:
     return name;
   }
 
-  m_Value get_value_if_possible() {
+
+  m_Value get_value_if_possible() const {
     m_Value val = unary_expression->get_value_if_possible();
-    m_Value name = get_for_optim();
+
 
     switch (un_op) {
     case UnaryOperator::MUL_OP: {
 
       if (!constant_prop)
         return m_Value();
-
+      m_Value name = get_for_optim();
       return codeGenerator.get_mval(name.s);
     }
     case UnaryOperator::PLUS:
@@ -2718,6 +2745,15 @@ public:
 
     auto ret = new UnaryExpressionNode(*this);
     ret->unary_expression = unary_expression->optimise();
+
+    auto my_val = get_value_if_possible();
+    if(my_val.type == ActualValueType::INTEGER){
+      return new IConstantNode(my_val.i);
+    }
+
+    if(my_val.type == ActualValueType::FLOATING){
+      return new FConstantNode(my_val.f);
+    }
     return ret;
   }
 

@@ -1,4 +1,4 @@
-#include <stdio.h>
+int printf(const char *format, ...);
 
 void charfunc(char a)
 {

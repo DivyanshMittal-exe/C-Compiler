@@ -1,4 +1,4 @@
-#include <stdio.h>
+int printf(const char *format, ...);
 
 /* This test segfaults as of April 27, 2015. */
 void f1(int argc)
