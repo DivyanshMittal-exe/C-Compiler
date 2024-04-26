@@ -3,7 +3,7 @@
 int printf(char const *format, ...);
 
 int main() {
-  int arr[2];
+  int arr[20];
 
   arr[0] = 1;
 

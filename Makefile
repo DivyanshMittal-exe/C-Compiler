@@ -11,7 +11,7 @@ clean:
 	rm -f c.tab.cpp c.tab.hpp c.lex.cpp cc c.output
 
 run_llvm: clean cc
-	./cc examples/test_trivial.c --dump-ast --skip-semantics
+	./cc examples/test_trivial.c --dump-ast 
 	llc -filetype=obj a.ll -o a.o
 	clang a.o -o a.out -pie
 	./a.out
@@ -46,7 +46,7 @@ run_stress:clean cc
 	$(eval padded_number := $(shell printf "%05d" $(stress_number)))
 	$(eval c_file := ./stress/$(padded_number).c)
 	echo $(c_file)
-	./cc $(c_file) --dump-ast --skip-semantics
+	./cc $(c_file) --dump-ast
 	llc -filetype=obj a.ll -o a.o
 	clang a.o -o a.out -pie
 	./a.out

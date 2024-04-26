@@ -1668,6 +1668,9 @@ public:
     if (is_declaration_global) {
 
       llvm::Constant *init_val = nullptr;
+      if (!val) {
+        throw std::runtime_error("Global Arrays is not supported \n");
+      }
 
       if (llvm::isa<llvm::Constant>(val)) {
         init_val = llvm::dyn_cast<llvm::Constant>(val);
@@ -1679,6 +1682,7 @@ public:
       alloca = new llvm::GlobalVariable(
           *codeGenerator.global_module, declaration_type_copy, false,
           llvm::GlobalValue::ExternalLinkage, init_val, name);
+      
     } else {
       alloca = codeGenerator.getBuilder().CreateAlloca(declaration_type_copy,
                                                        nullptr, name);

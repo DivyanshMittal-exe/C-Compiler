@@ -18,14 +18,14 @@ static void usage() {
   std::cout << "--no-optimise: Disable optimization" << std::endl;
 
   std::cout << "--dump-ast: Dump abstract syntax tree" << std::endl;
-  std::cout << "--skip-semantics: Skip checking for semantics" << std::endl;
+  std::cout << "--semantics: Explicit Checking for semantics, this is merged with codegen step and should not be used" << std::endl;
 }
 
 int main(int argc, char **argv) {
 
   bool unknownArgument = false;
   bool hasProgC = false;
-  bool skipSemantics = false;
+  bool skipSemantics = true;
 
   std::string out_filename = "a.ll";
   bool optimise = true;
@@ -43,8 +43,8 @@ int main(int argc, char **argv) {
       optimise = false;
     } else if (arg == "--dump-ast") { // Check for --dump-ast flag
       dump_ast = true;
-    } else if (arg == "--skip-semantics") {
-      skipSemantics = true;
+    } else if (arg == "--semantics") {
+      skipSemantics = false;
     } else if (!hasProgC) { // Check for <prog.c>
       hasProgC = true;
       prog_filename = arg;
@@ -96,26 +96,13 @@ int main(int argc, char **argv) {
     }
   }
 
-  string disable_if_ptr = "UnOp&{";
-  string disable_if_ptr2 = "UnOp*{";
-
-  bool const_prop = false;
-  if (ast_dump.find(disable_if_ptr) != string::npos ||
-      ast_dump.find(disable_if_ptr2) != string::npos) {
-    const_prop = true;
-  }
-
   if (optimise) {
     ASTNode *old = new NullPtrNode();
     string old_dump = old->dump_ast();
     int i = 0;
     while (old_dump != root->dump_ast()) {
       old_dump = root->dump_ast();
-      if (const_prop) {
-        root = root->enable_constant_prop();
-      } else {
-        root = root->disable_constant_prop();
-      }
+      root = root->optimise();
       if (i > 100) {
         break;
       }

@@ -15,7 +15,7 @@ class TestCPrograms(unittest.TestCase):
             executable_name = "a"
 
             # Compile the C program
-            compile_command = f'./cc {c_file} --skip-semantics'
+            compile_command = f'./cc {c_file}'
             subprocess.run(compile_command, shell=True, check=True)
 
             # Generate object file
@@ -94,7 +94,7 @@ if __name__ == '__main__':
     c_files = [file for file in c_files if file not in to_skip]
 
     c_files = sorted(c_files)
-    random.shuffle(c_files)
+    # random.shuffle(c_files)
     print(c_files)
 
     # Create a TestSuite instance
