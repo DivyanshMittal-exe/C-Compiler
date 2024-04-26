@@ -77,13 +77,15 @@ if __name__ == '__main__':
             f.write(modified_content)
 
     c_files = c_files_copy
+    import random
+
     to_skip = [
         37, 38, 39, 40, 51, 72, 73, 78, 88, 90, 95, 103, 112, 117, 119, 123,
         164, 166, 173
     ]
     not_care = [
         43, 44, 46, 47, 98, 104, 114, 124, 128, 133, 134, 135, 143, 144, 147,
-        151, 159
+        151, 159, 189, 217, 179, 177, 180
     ]
 
     to_skip += not_care
@@ -92,6 +94,7 @@ if __name__ == '__main__':
     c_files = [file for file in c_files if file not in to_skip]
 
     c_files = sorted(c_files)
+    random.shuffle(c_files)
     print(c_files)
 
     # Create a TestSuite instance

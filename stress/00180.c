@@ -1,10 +1,10 @@
 int printf(const char *format, ...);
-#include <string.h>
+int strcpy(char *dest, const char *src);
 
 int main()
 {
    char a[10];
-   strcpy(a, "abcdef");
+   strcpy(a, "abcdefghij");
    printf("%s\n", &a[1]);
 
    return 0;

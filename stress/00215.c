@@ -1,5 +1,5 @@
 extern int printf(const char *format, ...);
-static void kb_wait_1(void)
+static void kb_wait_1()
 {
     unsigned long timeout = 2;
     do {
@@ -12,7 +12,7 @@ static void kb_wait_1(void)
         timeout--;
     } while (timeout);
 }
-static void kb_wait_2(void)
+static void kb_wait_2()
 {
     unsigned long timeout = 2;
     do {
@@ -25,7 +25,7 @@ static void kb_wait_2(void)
         timeout--;
     } while (timeout);
 }
-static void kb_wait_2_1(void)
+static void kb_wait_2_1()
 {
     unsigned long timeout = 2;
     do {
@@ -39,7 +39,7 @@ static void kb_wait_2_1(void)
         timeout--;
     } while (timeout);
 }
-static void kb_wait_2_2(void)
+static void kb_wait_2_2()
 {
     unsigned long timeout = 2;
     do {
@@ -53,7 +53,7 @@ static void kb_wait_2_2(void)
         timeout--;
     } while (timeout);
 }
-static void kb_wait_3(void)
+static void kb_wait_3()
 {
     unsigned long timeout = 2;
     do {
@@ -69,7 +69,7 @@ static void kb_wait_3(void)
         timeout--;
     } while (timeout);
 }
-static void kb_wait_4(void)
+static void kb_wait_4()
 {
     unsigned long timeout = 2;
     do {

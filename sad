@@ -1,27 +1,20 @@
-  virtual void dump_llvm(string out_filename) final {
+CompoundStatement[ 
+ ┃  ┃  ┃  ┣━Declaration{ 
+ ┃  ┃  ┃  ┃  ┣━DeclarationSpecifiers[ 
+ ┃  ┃  ┃  ┃  ┃  ┣━INT
+ ┃  ┃  ┃  ┃  ┣━]
+ ┃  ┃  ┃  ┃  ┣━InitDeclartorList[ 
+ ┃  ┃  ┃  ┃  ┃  ┣━InitDeclartor{ 
+ ┃  ┃  ┃  ┃  ┃  ┃  ┣━ArrayDeclarator{ 
+ ┃  ┃  ┃  ┃  ┃  ┃  ┃  ┣━Identifier: a
+ ┃  ┃  ┃  ┃  ┃  ┃  ┃  ┣━ConditionalExpression{ 
+ ┃  ┃  ┃  ┃  ┃  ┃  ┃  ┃  ┣━Integer:1
+ ┃  ┃  ┃  ┃  ┃  ┃  ┃  ┃  ┣━Integer:1
+ ┃  ┃  ┃  ┃  ┃  ┃  ┃  ┃  ┣━Integer:0
+ ┃  ┃  ┃  ┃  ┃  ┃  ┃  ┣━} 
+ ┃  ┃  ┃  ┃  ┃  ┃  ┣━} 
+ ┃  ┃  ┃  ┃  ┃  ┃  ┣━
+ ┃  ┃  ┃  ┃  ┃  ┣━} 
+ ┃  ┃  ┃  ┃  ┣━]
+ ┃  ┃  ┃  ┣━} 
 
-
-    std::error_code EC;
-    llvm::raw_fd_ostream out(out_filename, EC);
-    codeGenerator.global_module->print(out, nullptr);
-
-  }
-
-  vector<ASTNode *> children;
-  NodeType type;
-};
-
-
-  virtual llvm::Value *codegen() {
-    throw std::runtime_error("Unimplemented codegen() function.");
-  }
-
-    Value* codegen(){
-
-      for(auto child: children){
-        child->codegen();
-      }
-
-      return nullptr;
-
-    }

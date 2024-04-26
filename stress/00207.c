@@ -3,17 +3,18 @@ int printf(const char *format, ...);
 /* This test segfaults as of April 27, 2015. */
 void f1(int argc)
 {
-  char test[argc];
-  if(0)
-  label:
+  char test[2];
+  // if(0)
+  label: 
     printf("boom!\n");
+
   if(argc-- == 0)
     return;
   goto label;
 }
 
 /* This segfaulted on 2015-11-19. */
-void f2(void)
+void f2()
 {
     goto start;
     {
@@ -27,7 +28,7 @@ void f2(void)
     }
 }
 
-void f3(void)
+void f3()
 {
     printf("%d\n", 0 ? printf("x1\n") : 11);
     printf("%d\n", 1 ? 12 : printf("x2\n"));

@@ -1,6 +1,6 @@
 int printf(const char *format, ...);
 
-void fred(void)
+void fred()
 {
    printf("yo\n");
 }

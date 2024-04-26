@@ -1600,6 +1600,7 @@ public:
 
   ASTNode *optimise() const {
     auto ret = new InitDeclartorNode(*this);
+    ret->declarator = declarator->optimise();
     ret->initializer = initializer->optimise();
 
     m_Value v = initializer->get_value_if_possible();
@@ -1874,6 +1875,7 @@ public:
   ASTNode *optimise() const {
 
     auto ret = new ArrayDeclaratorNode(*this);
+    ret->direct_declarator = direct_declarator->optimise();
     ret->assignment_expression = assignment_expression->optimise();
     return ret;
   }
@@ -3019,7 +3021,7 @@ public:
   ASTNode *optimise() const {
 
     auto ret = new ConditionalExpressionNode(*this);
-    ret->logical_or_expression->optimise();
+    ret->logical_or_expression = logical_or_expression->optimise();
     ret->expression = expression->optimise();
     ret->conditional_expression = conditional_expression->optimise();
 
